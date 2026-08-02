@@ -7,6 +7,7 @@ about one request per second.
 
 from __future__ import annotations
 
+import hashlib
 import time
 from pathlib import Path
 
@@ -30,7 +31,14 @@ def fetch_observations(
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     safe = taxon_name.replace(" ", "_").lower()
-    cache = cache_dir / f"inat_{safe}_{quality_grade}.gpkg"
+    # Every query parameter has to be in the key. Keying on taxon alone meant a
+    # second region silently reused the first region's records and then filtered
+    # them all out as being outside its own AOI, reporting zero observations for
+    # an area that genuinely has some.
+    key = hashlib.sha1(
+        f"{bbox_wgs84}|{quality_grade}|{sorted(months) if months else None}".encode()
+    ).hexdigest()[:12]
+    cache = cache_dir / f"inat_{safe}_{key}.gpkg"
     if cache.exists():
         gdf = gpd.read_file(cache)
         log(f"    {taxon_name}: {len(gdf)} observations (cached)")

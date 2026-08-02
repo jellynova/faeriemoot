@@ -36,6 +36,7 @@ class Scene:
     date: str
     cloud: float
     baseline: str
+    tile: str = "?"
 
     @property
     def id(self) -> str:
@@ -55,7 +56,7 @@ def search_scenes(cfg: Config, log=print) -> list[Scene]:
         ).items()
     )
 
-    in_window: dict[str, Scene] = {}
+    in_window: dict[tuple[str, str], Scene] = {}
     for it in items:
         md = it.datetime.strftime("%m-%d")
         if not (w["window_start"] <= md <= w["window_end"]):
@@ -63,20 +64,44 @@ def search_scenes(cfg: Config, log=print) -> list[Scene]:
         if it.datetime.year not in years:
             continue
         date = it.datetime.strftime("%Y-%m-%d")
+        tile = str(it.properties.get("s2:mgrs_tile", "?"))
         sc = Scene(
             item=it,
             date=date,
             cloud=float(it.properties.get("eo:cloud_cover", 100.0)),
             baseline=str(it.properties.get("s2:processing_baseline", "05.00")),
+            tile=tile,
         )
-        # Same date can appear more than once across processing baselines.
-        prev = in_window.get(date)
+        # Same tile and date can appear more than once across processing baselines.
+        prev = in_window.get((tile, date))
         if prev is None or sc.cloud < prev.cloud:
-            in_window[date] = sc
+            in_window[(tile, date)] = sc
 
     scenes = sorted(in_window.values(), key=lambda s: s.cloud)
-    log(f"  {len(scenes)} distinct dates in the {w['window_start']}..{w['window_end']} window across {years}")
+    tiles = sorted({s.tile for s in scenes})
+    log(f"  {len(scenes)} scenes over {len(tiles)} MGRS tile(s) in the "
+        f"{w['window_start']}..{w['window_end']} window across {years}")
     return scenes
+
+
+def select_per_tile(scenes: list[Scene], max_per_tile: int, log=print) -> list[Scene]:
+    """Take the clearest ``max_per_tile`` scenes for each MGRS tile.
+
+    Selecting globally by cloud cover is only safe for a single-tile AOI: on a
+    wider area the clearest N scenes can all come from one tile, leaving the
+    rest of the region with no imagery at all.
+    """
+    by_tile: dict[str, list[Scene]] = {}
+    for sc in sorted(scenes, key=lambda s: s.cloud):
+        by_tile.setdefault(sc.tile, []).append(sc)
+
+    chosen: list[Scene] = []
+    for tile, group in sorted(by_tile.items()):
+        keep = group[:max_per_tile]
+        chosen.extend(keep)
+        log(f"    tile {tile}: {len(keep)} scene(s), cloud "
+            f"{keep[0].cloud:.1f}-{keep[-1].cloud:.1f}%")
+    return chosen
 
 
 def _harmonise(arr: np.ndarray, baseline: str) -> np.ndarray:

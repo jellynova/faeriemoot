@@ -35,7 +35,7 @@ from affine import Affine
 from ..config import Config
 from ..curves import trapezoid
 from ..grid import Grid
-from ..sources.sentinel import SCL_KEEP, read_band, read_scl, search_scenes
+from ..sources.sentinel import SCL_KEEP, read_band, read_scl, search_scenes, select_per_tile
 
 # Categorical output for the UI's vegetation layer.
 CLASS_NODATA, CLASS_BARE, CLASS_MEADOW, CLASS_OPEN_FOREST, CLASS_CLOSED_FOREST = 0, 1, 2, 3, 4
@@ -99,13 +99,14 @@ def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = 
             "no Sentinel-2 scenes in the seasonal window - widen imagery.window_start/"
             "window_end, add years, or raise max_cloud_cover"
         )
-    scenes = scenes[:max_scenes]
+    # max_scenes is per MGRS tile, so a multi-tile AOI keeps coverage everywhere.
+    scenes = select_per_tile(scenes, max_scenes, log=log)
 
     fine_transform, fine_shape = _fine_grid(grid)
     ndvi_stack, tex_stack, ndmi_stack = [], [], []
 
     for i, sc in enumerate(scenes, 1):
-        log(f"  [{i}/{len(scenes)}] {sc.date}  cloud={sc.cloud:.1f}%")
+        log(f"  [{i}/{len(scenes)}] {sc.date} {sc.tile}  cloud={sc.cloud:.1f}%")
 
         red = read_band(sc, "B04", grid.crs, fine_transform, fine_shape)
         nir = read_band(sc, "B08", grid.crs, fine_transform, fine_shape)

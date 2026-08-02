@@ -1,0 +1,47 @@
+{
+  "type": "FeatureCollection",
+  "name": "kootenays_validation",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3/CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "kootenays_validation",
+        "label": "Kootenays (validation extent)",
+        "note": "Wide extent used only to validate the model against occurrence records. Coarser grid; not a foraging target area."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -118.5,
+              49.0
+            ],
+            [
+              -116.0,
+              49.0
+            ],
+            [
+              -116.0,
+              50.5
+            ],
+            [
+              -118.5,
+              50.5
+            ],
+            [
+              -118.5,
+              49.0
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
