@@ -15,7 +15,6 @@ import json
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 from scipy import ndimage
 from shapely.geometry import Point
 
@@ -155,11 +154,13 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
     obs_radius = float(cfg.species["observations"].get("boost_radius_m", 1200.0))
 
     rows = []
-    for (r, c), lbl, msc, ash in zip(peak_flat, keep, mean_score, area_ha):
-        r, c = int(r), int(c)
+    for (row, col), msc, ash in zip(peak_flat, mean_score, area_ha, strict=True):
+        r, c = int(row), int(col)
         x, y = grid.transform * (c + 0.5, r + 0.5)
 
-        def at(name, default=None):
+        # r/c are bound as defaults rather than closed over, so `at` can never
+        # pick up a later iteration's cell.
+        def at(name, default=None, r=r, c=c):
             arr = layers.get(name)
             if arr is None:
                 return default

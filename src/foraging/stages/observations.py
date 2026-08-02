@@ -99,7 +99,7 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     proj = obs.to_crs(grid.crs)
     seeds = np.zeros(grid.shape, dtype="float64")
     inv = ~grid.transform
-    for pt, w in zip(proj.geometry, proj["weight"]):
+    for pt, w in zip(proj.geometry, proj["weight"], strict=True):
         col, row = inv * (pt.x, pt.y)
         r, c = int(row), int(col)
         if 0 <= r < grid.height and 0 <= c < grid.width:

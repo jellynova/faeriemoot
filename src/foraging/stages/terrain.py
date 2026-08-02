@@ -12,7 +12,7 @@ from scipy import ndimage
 
 from ..config import Config
 from ..curves import aspect_score, trapezoid, weighted_mean
-from ..grid import Grid, build_grid
+from ..grid import build_grid
 from ..sources.dem import fetch_dem
 
 # Horn's 3x3 kernels. Written for scipy.ndimage.correlate (no kernel flip),

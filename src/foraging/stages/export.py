@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import shutil
 
-import geopandas as gpd
 import numpy as np
 import rasterio
 from PIL import Image

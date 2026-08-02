@@ -90,7 +90,6 @@ def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = 
         texture = Grid.read(cfg.interim("ndvi_texture.tif"))[0]
         return classify(cfg, grid, ndvi, ndmi, texture, log=log)
 
-    vcfg = cfg.species["vegetation"]
     max_scenes = int(cfg.pipeline["imagery"].get("max_scenes", 8))
 
     log("[vegetation] searching Sentinel-2")
@@ -127,7 +126,10 @@ def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = 
         tex_stack.append(ndvi_std)
 
         # NDMI needs SWIR, which is native 20 m - compute it straight on the
-        # 30 m analysis grid rather than pretending to 10 m detail.
+        # 30 m analysis grid rather than pretending to 10 m detail. NIR is
+        # cloud-masked first so a partly clouded block does not average cloud
+        # reflectance into the NDMI numerator.
+        nir[~keep] = np.nan
         nir30 = _block_stats(nir)[0]
         del nir
         swir30 = read_band(sc, "B11", grid.crs, grid.transform, grid.shape)
