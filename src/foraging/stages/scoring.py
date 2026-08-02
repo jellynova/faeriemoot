@@ -133,6 +133,7 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         "hike_minutes": _read(cfg, "hike_minutes"),
         "hike_km": _read(cfg, "hike_km"),
         "land_tenure": _read(cfg, "land_tenure"),
+        "logging_age": _read(cfg, "logging_age"),
     }
 
     idx = np.arange(1, n + 1)
@@ -165,7 +166,12 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             if arr is None:
                 return default
             v = arr[r, c]
-            return None if isinstance(v, float) and not np.isfinite(v) else v
+            # np.float32 is not a Python float, so an isinstance(v, float) test
+            # silently lets NaN through and emits invalid NaN tokens into the
+            # GeoJSON. Check the value itself instead.
+            if isinstance(v, (int, np.integer)):
+                return v
+            return None if not np.isfinite(v) else v
 
         tenure_code = int(at("land_tenure", 0) or 0)
         tenure_key = CLASS_KEYS.get(tenure_code, "crown_land")
@@ -184,6 +190,8 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "ndvi": None if at("ndvi") is None else round(float(at("ndvi")), 3),
             "canopy_closure": None if at("canopy_closure") is None else round(float(at("canopy_closure")), 3),
             "veg_class": VEG_CLASS_NAMES.get(veg_code, "unknown"),
+            "years_since_logging": None if at("logging_age") is None else int(at("logging_age")),
+            "on_cutblock": at("logging_age") is not None,
             "drive_minutes": None if at("drive_minutes") is None else round(float(at("drive_minutes")), 1),
             "hike_minutes": None if at("hike_minutes") is None else round(float(at("hike_minutes")), 1),
             "hike_km": None if at("hike_km") is None else round(float(at("hike_km")), 2),

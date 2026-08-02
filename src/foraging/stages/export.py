@@ -45,6 +45,7 @@ VEG_COLOURS = {
     2: (120, 200, 90),    # open meadow
     3: (60, 140, 80),     # open forest
     4: (25, 70, 45),      # closed forest
+    5: (198, 122, 62),    # regenerating cutblock
 }
 
 TENURE_COLOURS = {
@@ -163,6 +164,15 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
         layers["vegetation"] = {"label": "Vegetation class", "file": "vegetation.png",
                                 "type": "categorical"}
         log("    vegetation.png")
+
+    logging_age = _safe_read(cfg, "logging_age")
+    if logging_age is not None and np.isfinite(logging_age).any():
+        stats = _continuous_overlay(web_dir / "logging_age.png", logging_age, grid, bounds,
+                                    RAMPS["ndvi"], vmin=0.0, vmax=60.0, opacity=200)
+        if stats:
+            layers["logging_age"] = {"label": "Years since logging", "file": "logging_age.png",
+                                     "type": "continuous", **stats}
+            log("    logging_age.png")
 
     tenure = _safe_read(cfg, "land_tenure")
     if tenure is not None:

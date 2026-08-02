@@ -39,11 +39,13 @@ from ..sources.sentinel import SCL_KEEP, read_band, read_scl, search_scenes, sel
 
 # Categorical output for the UI's vegetation layer.
 CLASS_NODATA, CLASS_BARE, CLASS_MEADOW, CLASS_OPEN_FOREST, CLASS_CLOSED_FOREST = 0, 1, 2, 3, 4
+CLASS_CUTBLOCK = 5
 CLASS_NAMES = {
-    CLASS_BARE: "bare / rock / cutblock",
+    CLASS_BARE: "bare / rock / scree",
     CLASS_MEADOW: "open meadow",
     CLASS_OPEN_FOREST: "open forest",
     CLASS_CLOSED_FOREST: "closed forest",
+    CLASS_CUTBLOCK: "regenerating cutblock",
 }
 
 FINE_FACTOR = 3  # 30 m analysis cell = 3x3 block of 10 m Sentinel-2 pixels
@@ -77,6 +79,57 @@ def _block_stats(fine: np.ndarray, factor: int = FINE_FACTOR) -> tuple[np.ndarra
 def _normalise(x: np.ndarray, lo: float, hi: float) -> np.ndarray:
     """Map lo->0, hi->1, clipped."""
     return np.clip((x - lo) / max(hi - lo, 1e-9), 0.0, 1.0)
+
+
+def logging_age(cfg: Config, grid: Grid, log=print) -> np.ndarray:
+    """Years since harvest per cell; NaN where never logged (on record).
+
+    Needed because a regenerating clearcut is spectrally almost identical to
+    subalpine meadow - open canopy, high summer NDVI - so the vegetation stage
+    scores it as prime habitat. Checking the top-ranked sites against satellite
+    imagery showed them sitting on hard-edged cutblocks along logging roads,
+    which is what prompted this layer.
+    """
+    from ..sources.bcdata import aoi_bbox_albers, fetch_layer
+
+    blocks = fetch_layer("cutblocks", aoi_bbox_albers(cfg.aoi), cfg.cache_dir, log=log)
+    age = np.full(grid.shape, np.nan, dtype="float32")
+    if not len(blocks):
+        return age
+
+    year_col = next((c for c in ("HARVEST_MID_YEAR_CALENDAR", "HARVEST_START_YEAR_CALENDAR")
+                     if c in blocks.columns), None)
+    if year_col is None:
+        log("    ! cutblock layer has no harvest year column; skipping")
+        return age
+
+    from datetime import date
+
+    this_year = date.today().year
+    blocks = blocks[blocks[year_col].notna()].copy()
+    blocks["_age"] = (this_year - blocks[year_col]).clip(lower=0)
+    # WFS hands these back in BC Albers; the analysis grid is UTM.
+    blocks = blocks.to_crs(grid.crs)
+
+    # Youngest block wins where cuts overlap, so re-logged ground reads as recent.
+    shapes = sorted(
+        ((geom, float(a)) for geom, a in zip(blocks.geometry, blocks["_age"], strict=True)
+         if geom is not None and not geom.is_empty),
+        key=lambda s: -s[1],
+    )
+    if not shapes:
+        return age
+
+    from rasterio.features import rasterize
+
+    burned = rasterize(shapes, out_shape=grid.shape, transform=grid.transform,
+                       fill=np.nan, dtype="float32", all_touched=False)
+    if np.isfinite(burned).any():
+        log(f"    {len(shapes):,} cutblocks on grid, most recent "
+            f"{np.nanmin(burned):.0f} years ago, {np.isfinite(burned).mean():.1%} of cells")
+    else:
+        log(f"    {len(shapes):,} cutblocks fetched but none intersect the grid")
+    return burned
 
 
 def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = False) -> dict:
@@ -200,6 +253,23 @@ def classify(cfg: Config, grid: Grid, ndvi, ndmi, texture, log=print) -> dict:
     if cfg.weights["hard_filters"].get("enforce_ndvi_hard_min", True):
         score = np.where(bare, np.nan, score)
 
+    # ---- clearcut penalty ------------------------------------------------
+    lcfg = vcfg.get("logging", {})
+    age = logging_age(cfg, grid, log=log)
+    penalty = np.ones(grid.shape, dtype="float32")
+    recovery = float(lcfg.get("recovery_years", 45.0))
+    floor = float(lcfg.get("penalty", 1.0))
+    logged = np.isfinite(age)
+    if floor < 1.0 and logged.any():
+        # Full penalty on fresh ground, fading linearly back to no penalty once
+        # the block reaches recovery_years.
+        fade = np.clip(age / max(recovery, 1e-9), 0.0, 1.0)
+        penalty = np.where(logged, floor + (1.0 - floor) * fade, 1.0).astype("float32")
+        score = (score * penalty).astype("float32")
+        hit = logged & (age < recovery)
+        log(f"    clearcut penalty applied to {int(hit.sum()):,} cells "
+            f"({hit.mean():.1%} of grid) logged within {recovery:g} years")
+
     # ---- categorical layer for the UI -----------------------------------
     veg_class = np.full(grid.shape, CLASS_NODATA, dtype="uint8")
     valid = np.isfinite(ndvi) & np.isfinite(closure)
@@ -207,6 +277,10 @@ def classify(cfg: Config, grid: Grid, ndvi, ndmi, texture, log=print) -> dict:
     veg_class[valid & (closure < 2 / 3)] = CLASS_OPEN_FOREST
     veg_class[valid & (closure < 1 / 3)] = CLASS_MEADOW
     veg_class[valid & bare] = CLASS_BARE
+    # Regenerating cutblocks are called what they are, not "open meadow".
+    veg_class[valid & logged & (age < recovery) & (veg_class == CLASS_MEADOW)] = CLASS_CUTBLOCK
+
+    grid.write(cfg.interim("logging_age.tif"), age)
 
     grid.write(cfg.interim("ndvi.tif"), ndvi)
     grid.write(cfg.interim("ndmi.tif"), ndmi)

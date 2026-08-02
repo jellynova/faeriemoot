@@ -27,7 +27,8 @@
     ["#78c85a", "Open meadow"],
     ["#3c8c50", "Open forest"],
     ["#19462d", "Closed forest"],
-    ["#aa9682", "Bare / rock / cutblock"]
+    ["#c67a3e", "Regenerating cutblock"],
+    ["#aa9682", "Bare / rock / scree"]
   ];
 
   var TENURE_LEGEND = [
@@ -303,6 +304,9 @@
       "<dt>Aspect</dt><dd>" + (p.aspect_compass || "-") + " (" + fmt(p.aspect_deg) + "&deg;)</dd>" +
       "<dt>Slope</dt><dd>" + fmt(p.slope_deg, 1, "&deg;") + "</dd>" +
       "<dt>Vegetation</dt><dd>" + (p.veg_class || "-") + "</dd>" +
+      (p.on_cutblock
+        ? "<dt>Logged</dt><dd>" + p.years_since_logging + " yr ago</dd>"
+        : "") +
       "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>" +
       "<dt>Patch area</dt><dd>" + fmt(p.area_ha, 1, " ha") + "</dd>" +
       "<dt>Drive</dt><dd>" + minutesLabel(p.drive_minutes) + "</dd>" +
@@ -316,6 +320,13 @@
         bar("Access", p.score_access) +
         bar("Observations", p.score_observations) +
       "</div>";
+
+    if (p.on_cutblock && p.years_since_logging !== null && p.years_since_logging < 45) {
+      html += '<div class="flagbox"><strong>Regenerating cutblock</strong><br>' +
+              "Logged " + p.years_since_logging + " years ago. Open ground here is " +
+              "harvest regrowth, not natural meadow - the score is already " +
+              "penalised for this.</div>";
+    }
 
     if (p.land_flagged) {
       html += '<div class="flagbox"><strong>' + p.land_status_label + "</strong><br>" +

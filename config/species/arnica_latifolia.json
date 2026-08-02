@@ -64,6 +64,11 @@
       "open_forest": 0.85,
       "closed_forest": 0.15,
       "bare": 0.05
+    },
+    "logging": {
+      "$comment": "A regenerating clearcut has the same spectral signature this stage selects for - high NDVI, low canopy closure - so without this it is scored as prime open meadow. Verified visually: the top-ranked sites were sitting on hard-edged cutblocks strung along logging roads. penalty is the multiplier applied to freshly logged ground; it fades linearly back to 1.0 once the block is recovery_years old, by which point the canopy has usually closed anyway.",
+      "penalty": 0.25,
+      "recovery_years": 45
     }
   },
   "imagery_window_override": null
