@@ -189,6 +189,7 @@
       $(id).addEventListener("input", function () { syncOutputs(); render(); });
     });
     $("f-exclude-flagged").addEventListener("change", render);
+    $("f-exclude-cutblock").addEventListener("change", render);
 
     $("f-opacity").addEventListener("input", function () {
       var v = Number(this.value);
@@ -203,6 +204,7 @@
       $("f-elev-min").value = $("f-elev-min").min;
       $("f-elev-max").value = $("f-elev-max").max;
       $("f-exclude-flagged").checked = false;
+      $("f-exclude-cutblock").checked = false;
       syncOutputs(); render();
     });
 
@@ -230,6 +232,8 @@
     var e = p.elevation_m;
     if (e !== null && (e < Number($("f-elev-min").value) || e > Number($("f-elev-max").value))) return false;
     if ($("f-exclude-flagged").checked && p.land_flagged) return false;
+    if ($("f-exclude-cutblock").checked && p.on_cutblock &&
+        p.years_since_logging !== null && p.years_since_logging < 45) return false;
     return true;
   }
 
@@ -363,12 +367,14 @@
   function addToggle(box, key, label, colour, handler) {
     var row = document.createElement("label");
     row.className = "layer-row";
+    row.setAttribute("data-key", key);
     var cb = document.createElement("input");
     cb.type = "checkbox";
     var sw = "";
     if (colour) sw = '<span class="swatch" style="background:' + colour + '"></span>';
     row.appendChild(cb);
-    row.insertAdjacentHTML("beforeend", sw + "<span>" + label + "</span>");
+    row.insertAdjacentHTML("beforeend",
+      sw + "<span>" + label + '<span class="layer-note"></span></span>');
     cb.addEventListener("change", function () { handler(this.checked); });
     box.appendChild(row);
   }
@@ -399,6 +405,7 @@
     // Vector files are fetched only when first switched on - roads alone are
     // several MB and most sessions never ask for them.
     vectorLoading[key] = true;
+    setLayerBusy(key, true);
     fetchJSON(current.base + spec.file)
       .then(function (gj) {
         var layer = L.geoJSON(gj, {
@@ -431,8 +438,18 @@
         layer.addTo(map);
         vectorLayers[key] = layer;
         vectorLoading[key] = false;
+        setLayerBusy(key, false);
       })
-      .catch(function () { vectorLoading[key] = false; });
+      .catch(function () {
+        vectorLoading[key] = false;
+        setLayerBusy(key, false, "failed to load");
+      });
+  }
+
+  function setLayerBusy(key, busy, failed) {
+    var row = document.querySelector('.layer-row[data-key="' + key + '"] .layer-note');
+    if (!row) return;
+    row.textContent = failed ? " " + failed : busy ? " loading..." : "";
   }
 
   function drawLegend() {

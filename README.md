@@ -154,6 +154,17 @@ same number of features were never returned at all. The holes shattered the
 routed network into disconnected fragments. Extents are therefore fetched by
 recursive quadrant subdivision until each tile fits under the feature cap.
 
+**Regenerating clearcuts are penalised, not celebrated.** A cutblock a decade
+after harvest has exactly the signature this model selects for — open canopy,
+high summer NDVI — and it sits on a logging road, so it scores well on access
+too. Before this was handled, the top-ranked sites were hard-edged cutblocks
+strung along logging roads, which only became obvious when the pins were
+rendered over satellite imagery. BC's consolidated cutblock layer now supplies
+years-since-harvest; recently logged ground is penalised on a fading curve, and
+labelled *regenerating cutblock* rather than *open meadow*. Tune it with
+`vegetation.logging` in the species profile. Note that harvest records do not
+go back indefinitely, so old cuts may still pass as meadow.
+
 **Hike cost is isotropic.** Tobler's hiking function is applied to terrain
 slope magnitude, not slope along the direction of travel — the standard GIS
 approximation. Expect hike times to be slightly conservative on traverses.
@@ -162,7 +173,59 @@ approximation. Expect hike times to be slightly conservative on traverses.
 
 ## Validation
 
-Drive times were checked against known road distances from Rossland:
+### Against real occurrences
+
+`scripts/validate.py` tests the model against research-grade *Arnica* records
+over a 30,000 km² Kootenays extent. Two confounds have to be removed first:
+observations feed the score (circularity), and botanists walk near roads, which
+the access layer rewards (sampling bias). So the test scores against a
+**habitat-only** surface — terrain and vegetation, with access and observations
+dropped. Records coarser than 100 m positional accuracy are excluded.
+
+| Group | n | Median score percentile |
+|---|---|---|
+| *A. latifolia* (target) | 26 | **0.81** |
+| *A. cordifolia* (forest congener) | 10 | 0.63 |
+| random null | 40,000 | 0.50 |
+
+| Comparison | AUC |
+|---|---|
+| target vs random null | 0.71 |
+| target vs forest congener | 0.71 |
+| **terrain alone**, target vs congener | **0.81** |
+
+The congener comparison is the meaningful one: both species share collectors,
+seasons and access bias, so beating it means the model is tracking *habitat*
+rather than *where people walk*.
+
+```bash
+python scripts/validate.py
+```
+
+### What the validation says the model is actually doing
+
+**Elevation carries almost all of it.** Per-layer AUC against the congener:
+elevation 0.86, aspect 0.58, vegetation 0.58, slope 0.52. If you retune one
+thing, retune the elevation band.
+
+**Vegetation does not add species discrimination.** Terrain alone separates the
+two species better (0.81) than terrain plus vegetation (0.71). Sweeping
+`openness_preference.open_forest` from 0.10 to 1.0 barely moves it, so this is
+not a tuning problem. Two honest caveats before concluding the layer is
+useless: the validation extent runs at 90 m, where meadow and open forest mix
+heavily inside one cell, and the congener test only measures *latifolia vs
+cordifolia*, which cannot reward vegetation for doing its actual job —
+rejecting closed canopy, scree and clearcut. The weights are left at their
+defaults; the evidence for changing them is a 26-against-10 sample, which is
+too thin to re-weight on.
+
+**Samples are small.** iNaturalist has a couple of dozen usable records across
+the whole extent. Treat the sign and rough magnitude as the result, not the
+third decimal.
+
+### Other checks
+
+Drive times against known road distances from Rossland:
 
 | Destination | Modelled | Actual road distance |
 |---|---|---|
@@ -177,6 +240,10 @@ least-cost path attribution (42 tests).
 ```bash
 pytest
 ```
+
+Top-ranked sites were also rendered over satellite imagery and inspected by
+eye — which is how the clearcut problem below was caught. It is worth repeating
+after any significant retune.
 
 ---
 
