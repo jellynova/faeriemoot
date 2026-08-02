@@ -19,15 +19,18 @@ tracks those from local sources.
 
 from __future__ import annotations
 
-import numpy as np
+import geopandas as gpd
 import networkx as nx
+import numpy as np
+import pandas as pd
 from rasterio.features import rasterize
 from shapely.geometry import LineString, MultiLineString
 
 from ..config import Config
-from ..curves import ramp_down
+from ..curves import ramp_down, weighted_mean
 from ..grid import Grid
 from ..sources.bcdata import aoi_bbox_albers, fetch_layer
+from ..sources.osm import fetch_trails
 
 # DRA road classes that cannot be driven to a trailhead.
 NON_DRIVABLE_CLASSES = {"trail", "pedestrian", "runway", "water", "ferry", "boat"}
@@ -188,6 +191,9 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     dra = fetch_layer("roads_dra", bbox, cfg.cache_dir, log=log)
     ften = fetch_layer("roads_ften", bbox, cfg.cache_dir, log=log)
     trails = fetch_layer("trails_ften", bbox, cfg.cache_dir, log=log)
+    # OSM fills in the recreational trail network the tenure layer misses.
+    w, s_, e, n = cfg.aoi.total_bounds
+    osm_trails = fetch_trails((w, s_, e, n), cfg.cache_dir, log=log)
 
     # ---- assemble a single drivable network -----------------------------
     dra = dra.to_crs(grid.crs)
@@ -209,9 +215,6 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
             ften = ften[ften["LIFE_CYCLE_STATUS_CODE"].fillna("ACTIVE").str.upper() == "ACTIVE"]
 
     cols = ["road_class", "geometry"]
-    import pandas as pd
-    import geopandas as gpd
-
     roads = gpd.GeoDataFrame(
         pd.concat([d[cols] for d in (dra, ften) if len(d)], ignore_index=True), crs=grid.crs
     )
@@ -242,8 +245,11 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
 
     # Off-trail travel is slower than the same grade on a trail.
     trail_mask = np.zeros(grid.shape, dtype=bool)
-    if len(trails):
-        trail_mask = grid.mask_from(trails.to_crs(grid.crs), all_touched=True)
+    trail_frames = [t.to_crs(grid.crs)[["geometry"]] for t in (trails, osm_trails) if len(t)]
+    if trail_frames:
+        all_trails = gpd.GeoDataFrame(pd.concat(trail_frames, ignore_index=True), crs=grid.crs)
+        trail_mask = grid.mask_from(all_trails, all_touched=True)
+        log(f"    {len(all_trails):,} trail segments, {trail_mask.sum():,} trail cells")
     penalty = float(acc.get("offtrail_penalty", 1.0))
     cost_min_per_m = np.where(trail_mask | road_mask, cost_min_per_m, cost_min_per_m * penalty)
 
@@ -281,8 +287,6 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     s_hike = ramp_down(hike_km, best=0.25, worst=max_hike)
 
     sub = cfg.weights["access_subweights"]
-    from ..curves import weighted_mean
-
     score = weighted_mean({"drive": s_drive, "hike": s_hike}, sub).astype("float32")
 
     hard = cfg.weights["hard_filters"]

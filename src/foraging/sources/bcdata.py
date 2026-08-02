@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import re
 import time
 from pathlib import Path
 
@@ -21,6 +22,7 @@ import pandas as pd
 import requests
 
 WFS_URL = "https://openmaps.gov.bc.ca/geo/pub/wfs"
+USER_AGENT = "foraging-suitability-mapper/0.1 (+https://github.com/jellynova/faeriemoot)"
 PAGE_SIZE = 10000
 ALBERS = "EPSG:3005"
 
@@ -42,6 +44,34 @@ def _cache_key(layer: str, bbox: tuple[float, float, float, float]) -> str:
     return hashlib.sha1(raw.encode()).hexdigest()[:16]
 
 
+_GEOM_COL_CACHE: dict[str, str] = {}
+_GEOM_RE = re.compile(r'name="(\w+)"[^>]*type="gml:\w*(?:Geometry|Surface|Curve|Point)\w*PropertyType"')
+
+
+def geometry_column(layer: str, log=print) -> str:
+    """Discover a layer's geometry attribute name.
+
+    BC's WFS is not consistent here - roads and national parks use ``GEOMETRY``
+    while provincial parks, conservancies and ParcelMap use ``SHAPE`` - and a
+    CQL ``BBOX`` against the wrong name is a hard 400.
+    """
+    if layer in _GEOM_COL_CACHE:
+        return _GEOM_COL_CACHE[layer]
+    try:
+        r = requests.get(
+            WFS_URL,
+            params={"service": "WFS", "version": "2.0.0", "request": "DescribeFeatureType",
+                    "typeNames": f"pub:{layer}"},
+            timeout=120,
+        )
+        match = _GEOM_RE.search(r.text)
+        col = match.group(1) if match else "GEOMETRY"
+    except requests.RequestException:
+        col = "GEOMETRY"
+    _GEOM_COL_CACHE[layer] = col
+    return col
+
+
 def fetch_layer(
     alias_or_name: str,
     bbox_albers: tuple[float, float, float, float],
@@ -61,8 +91,10 @@ def fetch_layer(
         return gdf
 
     x0, y0, x1, y1 = bbox_albers
+    geom_col = geometry_column(layer, log=log)
     frames: list[gpd.GeoDataFrame] = []
     start = 0
+    needs_sort = False
     while True:
         params = {
             "service": "WFS",
@@ -72,10 +104,23 @@ def fetch_layer(
             "outputFormat": "application/json",
             "srsName": ALBERS,
             "count": str(PAGE_SIZE),
-            "startIndex": str(start),
-            "CQL_FILTER": f"BBOX(GEOMETRY,{x0},{y0},{x1},{y1})",
+            "CQL_FILTER": f"BBOX({geom_col},{x0},{y0},{x1},{y1})",
         }
-        content = _get_with_retry(params, retries=retries, log=log)
+        # startIndex is omitted on the first page: sending it forces the server
+        # into a sorted read, which times out on the larger layers.
+        if start:
+            params["startIndex"] = str(start)
+            if needs_sort:
+                params["sortBy"] = "OBJECTID"
+
+        try:
+            content = _get_with_retry(params, retries=retries, log=log)
+        except NaturalOrderError:
+            # Layer has no primary key, so paging needs an explicit sort.
+            needs_sort = True
+            params["sortBy"] = "OBJECTID"
+            content = _get_with_retry(params, retries=retries, log=log)
+
         page = gpd.read_file(io.BytesIO(content))
         if len(page) == 0:
             break
@@ -97,15 +142,26 @@ def fetch_layer(
     return gdf
 
 
+def _readable(text: str, limit: int = 200) -> str:
+    """Strip XML tags so WFS exception reports are legible in a log line."""
+    return " ".join(re.sub(r"<[^>]+>", " ", text).split())[:limit]
+
+
+class NaturalOrderError(RuntimeError):
+    """Server refused a paged read because the layer has no primary key."""
+
+
 def _get_with_retry(params: dict, retries: int, log) -> bytes:
     delay = 2.0
     last = None
     for attempt in range(retries):
         try:
-            r = requests.get(WFS_URL, params=params, timeout=300)
+            r = requests.get(WFS_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=300)
             if r.status_code == 200:
                 return r.content
-            last = f"HTTP {r.status_code}: {r.text[:200]}"
+            if r.status_code == 400 and "natural order" in r.text.lower():
+                raise NaturalOrderError(r.text[:200])
+            last = f"HTTP {r.status_code}: {_readable(r.text)}"
         except requests.RequestException as exc:  # network flake
             last = str(exc)
         if attempt < retries - 1:
