@@ -1,0 +1,81 @@
+{
+  "aoi": {
+    "id": "west_kootenays",
+    "label": "Rossland / Castlegar / Salmo",
+    "bounds": [
+      -118.05,
+      49.0,
+      -117.25,
+      49.45
+    ]
+  },
+  "species": {
+    "id": "arnica_latifolia",
+    "common_name": "Mountain arnica",
+    "scientific_name": "Arnica latifolia",
+    "habitat_note": "Subalpine meadows AND open subalpine forest / forest edge. Deliberately NOT restricted to treeless meadow: A. latifolia is common under open canopy, so the vegetation stage scores a band of canopy openness rather than applying a binary meadow/forest cut."
+  },
+  "origin": {
+    "name": "Rossland, BC",
+    "lon": -117.7997,
+    "lat": 49.0781
+  },
+  "weights": {
+    "terrain": 0.3,
+    "vegetation": 0.3,
+    "access": 0.2,
+    "observations": 0.2
+  },
+  "imagery_window": {
+    "window_start": "06-20",
+    "window_end": "07-31",
+    "years": [
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "filters": {
+    "max_drive_minutes": 90,
+    "max_hike_km": 6.0,
+    "elevation_m": {
+      "hard_min": 1300,
+      "optimal_min": 1500,
+      "optimal_max": 2100,
+      "hard_max": 2500
+    },
+    "min_score": 0.45
+  },
+  "counts": {
+    "sites": 173,
+    "flagged": 10
+  },
+  "ranges": {
+    "score": [
+      0.893,
+      1.0
+    ],
+    "elevation_m": [
+      1411.0,
+      2100.0
+    ],
+    "drive_minutes": [
+      6.0,
+      68.0
+    ],
+    "hike_km": [
+      0.0,
+      2.49
+    ]
+  },
+  "land_status_labels": {
+    "crown_land": "Crown land",
+    "woodlot": "Woodlot licence",
+    "private": "Private property",
+    "recreation_area": "Recreation area",
+    "provincial_park": "Provincial park",
+    "conservancy": "Conservancy",
+    "ecological_reserve": "Ecological reserve",
+    "national_park": "National park"
+  }
+}

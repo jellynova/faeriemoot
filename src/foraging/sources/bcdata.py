@@ -78,12 +78,18 @@ def fetch_layer(
     cache_dir: Path,
     log=print,
     retries: int = 4,
+    cql_extra: str | None = None,
 ) -> gpd.GeoDataFrame:
-    """Fetch a WFS layer clipped to ``bbox_albers``, paging until exhausted."""
+    """Fetch a WFS layer clipped to ``bbox_albers``, paging until exhausted.
+
+    ``cql_extra`` is ANDed onto the bbox filter - used to pull only the parcels
+    that actually matter (private tenure) instead of the entire cadastre.
+    """
     layer = LAYERS.get(alias_or_name, alias_or_name)
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    cache = cache_dir / f"{alias_or_name}_{_cache_key(layer, bbox_albers)}.gpkg"
+    suffix = _cache_key(layer + (cql_extra or ""), bbox_albers)
+    cache = cache_dir / f"{alias_or_name}_{suffix}.gpkg"
 
     if cache.exists():
         gdf = gpd.read_file(cache)
@@ -92,6 +98,9 @@ def fetch_layer(
 
     x0, y0, x1, y1 = bbox_albers
     geom_col = geometry_column(layer, log=log)
+    cql = f"BBOX({geom_col},{x0},{y0},{x1},{y1})"
+    if cql_extra:
+        cql = f"({cql}) AND ({cql_extra})"
     frames: list[gpd.GeoDataFrame] = []
     start = 0
     needs_sort = False
@@ -104,7 +113,7 @@ def fetch_layer(
             "outputFormat": "application/json",
             "srsName": ALBERS,
             "count": str(PAGE_SIZE),
-            "CQL_FILTER": f"BBOX({geom_col},{x0},{y0},{x1},{y1})",
+            "CQL_FILTER": cql,
         }
         # startIndex is omitted on the first page: sending it forces the server
         # into a sorted read, which times out on the larger layers.
