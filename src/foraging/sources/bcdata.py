@@ -24,6 +24,8 @@ import requests
 WFS_URL = "https://openmaps.gov.bc.ca/geo/pub/wfs"
 USER_AGENT = "foraging-suitability-mapper/0.1 (+https://github.com/jellynova/faeriemoot)"
 PAGE_SIZE = 10000
+# Depth cap on quadrant subdivision, so a pathological extent cannot recurse away.
+MAX_TILE_DEPTH = 6
 ALBERS = "EPSG:3005"
 
 # Layer aliases so callers do not carry the full warehouse table names around.
@@ -96,52 +98,18 @@ def fetch_layer(
         log(f"    {alias_or_name}: {len(gdf):,} features (cached)")
         return gdf
 
-    x0, y0, x1, y1 = bbox_albers
     geom_col = geometry_column(layer, log=log)
-    cql = f"BBOX({geom_col},{x0},{y0},{x1},{y1})"
-    if cql_extra:
-        cql = f"({cql}) AND ({cql_extra})"
     frames: list[gpd.GeoDataFrame] = []
-    start = 0
-    needs_sort = False
-    while True:
-        params = {
-            "service": "WFS",
-            "version": "2.0.0",
-            "request": "GetFeature",
-            "typeNames": f"pub:{layer}",
-            "outputFormat": "application/json",
-            "srsName": ALBERS,
-            "count": str(PAGE_SIZE),
-            "CQL_FILTER": cql,
-        }
-        # startIndex is omitted on the first page: sending it forces the server
-        # into a sorted read, which times out on the larger layers.
-        if start:
-            params["startIndex"] = str(start)
-            if needs_sort:
-                params["sortBy"] = "OBJECTID"
-
-        try:
-            content = _get_with_retry(params, retries=retries, log=log)
-        except NaturalOrderError:
-            # Layer has no primary key, so paging needs an explicit sort.
-            needs_sort = True
-            params["sortBy"] = "OBJECTID"
-            content = _get_with_retry(params, retries=retries, log=log)
-
-        page = gpd.read_file(io.BytesIO(content))
-        if len(page) == 0:
-            break
-        frames.append(page)
-        if len(page) < PAGE_SIZE:
-            break
-        start += PAGE_SIZE
+    _fetch_tile(layer, geom_col, bbox_albers, cql_extra, frames, retries, log, depth=0)
 
     if not frames:
         gdf = gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs=ALBERS)
     else:
         gdf = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=frames[0].crs)
+        # Tiles overlap on their shared edges, so the same feature can arrive
+        # more than once.
+        if "OBJECTID" in gdf.columns:
+            gdf = gdf.drop_duplicates(subset="OBJECTID").reset_index(drop=True)
 
     log(f"    {alias_or_name}: {len(gdf):,} features")
     if len(gdf):
@@ -151,13 +119,53 @@ def fetch_layer(
     return gdf
 
 
+def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth) -> None:
+    """Fetch one bbox, subdividing it if the server caps the result.
+
+    The obvious approach - ``startIndex`` paging - is unsafe on this endpoint.
+    GeoServer gives no stable ordering without an explicit ``sortBy``, and
+    sorting the larger layers times the request out. Paging unsorted silently
+    returns overlapping pages: a Rossland-to-Nelson road fetch came back with
+    5,725 duplicate rows out of 26,428, which means the same number of features
+    were never returned at all, leaving holes that shattered the routed network.
+
+    Splitting the extent until every tile fits under the cap avoids paging
+    entirely, so each feature is requested exactly once per tile.
+    """
+    x0, y0, x1, y1 = bbox
+    cql = f"BBOX({geom_col},{x0},{y0},{x1},{y1})"
+    if cql_extra:
+        cql = f"({cql}) AND ({cql_extra})"
+
+    params = {
+        "service": "WFS",
+        "version": "2.0.0",
+        "request": "GetFeature",
+        "typeNames": f"pub:{layer}",
+        "outputFormat": "application/json",
+        "srsName": ALBERS,
+        "count": str(PAGE_SIZE),
+        "CQL_FILTER": cql,
+    }
+    page = gpd.read_file(io.BytesIO(_get_with_retry(params, retries=retries, log=log)))
+
+    if len(page) < PAGE_SIZE or depth >= MAX_TILE_DEPTH:
+        if len(page) >= PAGE_SIZE:
+            log(f"    ! tile still at the {PAGE_SIZE} feature cap after "
+                f"{MAX_TILE_DEPTH} splits; some features may be missing")
+        if len(page):
+            frames.append(page)
+        return
+
+    # Hit the cap - split into quadrants and recurse.
+    mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    for sub in ((x0, y0, mx, my), (mx, y0, x1, my), (x0, my, mx, y1), (mx, my, x1, y1)):
+        _fetch_tile(layer, geom_col, sub, cql_extra, frames, retries, log, depth + 1)
+
+
 def _readable(text: str, limit: int = 200) -> str:
     """Strip XML tags so WFS exception reports are legible in a log line."""
     return " ".join(re.sub(r"<[^>]+>", " ", text).split())[:limit]
-
-
-class NaturalOrderError(RuntimeError):
-    """Server refused a paged read because the layer has no primary key."""
 
 
 def _get_with_retry(params: dict, retries: int, log) -> bytes:
@@ -168,8 +176,6 @@ def _get_with_retry(params: dict, retries: int, log) -> bytes:
             r = requests.get(WFS_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=300)
             if r.status_code == 200:
                 return r.content
-            if r.status_code == 400 and "natural order" in r.text.lower():
-                raise NaturalOrderError(r.text[:200])
             last = f"HTTP {r.status_code}: {_readable(r.text)}"
         except requests.RequestException as exc:  # network flake
             last = str(exc)
@@ -180,15 +186,31 @@ def _get_with_retry(params: dict, retries: int, log) -> bytes:
     raise RuntimeError(f"WFS request failed after {retries} attempts: {last}")
 
 
-def aoi_bbox_albers(aoi: gpd.GeoDataFrame, buffer_m: float = 0.0) -> tuple[float, float, float, float]:
+def aoi_bbox_albers(
+    aoi: gpd.GeoDataFrame,
+    buffer_m: float = 0.0,
+    include_lonlat: tuple[float, float] | None = None,
+) -> tuple[float, float, float, float]:
     """AOI bounds in BC Albers, optionally buffered.
 
     The buffer matters for the access layer: a road just outside the AOI can
     still be the right way in, so the road fetch is deliberately wider than the
     scoring extent.
+
+    ``include_lonlat`` extends the box to cover an extra point - the drive-time
+    origin. Without it, an origin outside the AOI has no routable path to the
+    area: the network is fetched only around the AOI, the origin snaps to a
+    disconnected stub at the edge, and nothing downstream is reachable.
     """
     b = aoi.to_crs(ALBERS)
     if buffer_m:
         b = b.buffer(buffer_m)
     x0, y0, x1, y1 = b.total_bounds
+
+    if include_lonlat is not None:
+        pt = gpd.GeoSeries.from_xy([include_lonlat[0]], [include_lonlat[1]],
+                                   crs="EPSG:4326").to_crs(ALBERS).iloc[0]
+        x0, y0 = min(x0, pt.x - buffer_m), min(y0, pt.y - buffer_m)
+        x1, y1 = max(x1, pt.x + buffer_m), max(y1, pt.y + buffer_m)
+
     return (float(x0), float(y0), float(x1), float(y1))
