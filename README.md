@@ -84,24 +84,33 @@ anywhere else:
 
 ### Re-targeting at a new region
 
-Drop a polygon into `config/aoi/`, point `pipeline.json` at it, and re-run:
+Drop a polygon into `config/aoi/` and pass it on the command line:
 
 ```bash
-cp my_area.geojson config/aoi/nelson.geojson
-# set "aoi": "config/aoi/nelson.geojson" in config/pipeline.json
-forage run
+forage run --aoi config/aoi/nelson.geojson
 ```
 
 The analysis grid picks its own UTM zone from the AOI, every layer is fetched
 for the new extent, and outputs land in a parallel `output/nelson/` and
 `web/data/nelson/`. The map UI reads `web/data/index.json` and offers a region
-switcher — no code changes.
+switcher — no code changes. `config/aoi/nelson.geojson` ships as a worked
+second example (80 sites); `forage areas` lists what is available.
+
+The origin does **not** have to sit inside the AOI — the road fetch is extended
+to cover the origin and the corridor to the area, so drive times from Rossland
+to sites near Nelson route correctly. If the origin ends up far from any road,
+the access stage says so rather than failing later.
 
 ### Adding a target species
 
-Copy a species profile, edit the bands, and point `pipeline.json` at it. The
-vegetation thresholds are the part most worth re-tuning; see the notes below on
-how the current ones were calibrated.
+Copy a species profile and pass it the same way:
+
+```bash
+forage run --species config/species/my_plant.json
+```
+
+The vegetation thresholds are the part most worth re-tuning; see the modelling
+notes below for how the current ones were calibrated.
 
 ---
 
@@ -136,6 +145,14 @@ transfer between regions: at 0.45, 95% of scored cells here qualified, and
 connected-component labelling fused an entire massif into one 25,000 ha
 "site". Sites are now taken from the top 1% of the local score distribution,
 with oversized patches split at their local maxima.
+
+**Vector fetches are tiled, not paged.** BC's WFS gives no stable ordering
+without an explicit sort, and sorting the larger layers times the request out.
+Paging unsorted returns overlapping pages *silently* — a Rossland-to-Nelson
+road fetch came back with 5,725 duplicate rows out of 26,428, which means the
+same number of features were never returned at all. The holes shattered the
+routed network into disconnected fragments. Extents are therefore fetched by
+recursive quadrant subdivision until each tile fits under the feature cap.
 
 **Hike cost is isotropic.** Tobler's hiking function is applied to terrain
 slope magnitude, not slope along the direction of travel — the standard GIS
