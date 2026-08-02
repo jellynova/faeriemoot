@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Foraging Suitability Mapper</title>
+  <!-- Leaflet is vendored rather than loaded from a CDN so the map still works
+       offline - useful for a tool you may want open in the backcountry. -->
+  <link rel="stylesheet" href="vendor/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <header>
+        <h1>Foraging Suitability</h1>
+        <div class="subtitle">
+          <select id="area-select" aria-label="Area of interest"></select>
+        </div>
+        <p id="species-line" class="species"></p>
+      </header>
+
+      <section class="panel">
+        <h2>Filters</h2>
+
+        <label class="field">
+          <span>Minimum score <output id="out-score"></output></span>
+          <input type="range" id="f-score" min="0" max="1" step="0.01" value="0" />
+        </label>
+
+        <label class="field">
+          <span>Max drive <output id="out-drive"></output></span>
+          <input type="range" id="f-drive" min="0" max="180" step="5" value="180" />
+        </label>
+
+        <label class="field">
+          <span>Max hike <output id="out-hike"></output></span>
+          <input type="range" id="f-hike" min="0" max="20" step="0.25" value="20" />
+        </label>
+
+        <label class="field">
+          <span>Elevation band <output id="out-elev"></output></span>
+          <span class="dual">
+            <input type="range" id="f-elev-min" min="0" max="3000" step="25" value="0" />
+            <input type="range" id="f-elev-max" min="0" max="3000" step="25" value="3000" />
+          </span>
+        </label>
+
+        <label class="check">
+          <input type="checkbox" id="f-exclude-flagged" />
+          <span>Hide sites on flagged land</span>
+        </label>
+
+        <button id="reset-filters" type="button">Reset filters</button>
+      </section>
+
+      <section class="panel">
+        <h2>Layers</h2>
+        <div id="layer-toggles"></div>
+        <label class="field opacity-field">
+          <span>Overlay opacity <output id="out-opacity">70%</output></span>
+          <input type="range" id="f-opacity" min="0" max="100" step="5" value="70" />
+        </label>
+      </section>
+
+      <section class="panel grow">
+        <h2>Ranked sites <span id="site-count" class="count"></span></h2>
+        <ol id="site-list"></ol>
+      </section>
+
+      <footer>
+        <p id="provenance"></p>
+        <p class="disclaimer">
+          Land-status flags describe tenure, not permission. Confirm access and
+          harvesting rules before foraging. Snowpack and road closures are not
+          modelled.
+        </p>
+      </footer>
+    </aside>
+
+    <main id="map-wrap">
+      <div id="map"></div>
+      <div id="legend" class="legend"></div>
+      <button id="sidebar-toggle" type="button" aria-label="Toggle panel">☰</button>
+    </main>
+  </div>
+
+  <script src="vendor/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

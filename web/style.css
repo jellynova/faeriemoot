@@ -1,0 +1,188 @@
+:root {
+  --bg: #10130f;
+  --panel: #191d17;
+  --panel-2: #212619;
+  --line: #2f3728;
+  --text: #e8ece3;
+  --muted: #9aa892;
+  --accent: #9ccf5a;
+  --accent-dim: #6f9a3c;
+  --flag: #e0a03c;
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+#app { display: flex; height: 100%; }
+
+/* ---------- sidebar ---------- */
+#sidebar {
+  width: 340px;
+  flex: 0 0 340px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+#sidebar header { padding: 16px 16px 10px; border-bottom: 1px solid var(--line); }
+
+h1 { font-size: 16px; margin: 0 0 8px; letter-spacing: 0.2px; }
+
+.subtitle select {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.species { margin: 8px 0 0; color: var(--muted); font-size: 12px; font-style: italic; }
+
+.panel { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+/* The ranked list sizes to its content and the whole sidebar scrolls. Letting
+   this panel flex-grow instead compressed it while the list overflowed, so the
+   items painted over the footer. */
+.panel.grow { flex: 0 0 auto; }
+
+h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.count { color: var(--accent); text-transform: none; letter-spacing: 0; }
+
+.field { display: block; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+.field > span { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.field output { color: var(--text); font-variant-numeric: tabular-nums; }
+
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.dual { display: flex; flex-direction: column; gap: 2px; }
+
+.check { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 10px 0; cursor: pointer; }
+.check input { accent-color: var(--accent); }
+
+button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  width: 100%;
+}
+button:hover { border-color: var(--accent-dim); }
+
+/* ---------- layer toggles ---------- */
+.layer-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 12px; cursor: pointer; }
+.layer-row input { accent-color: var(--accent); }
+.swatch { width: 11px; height: 11px; border-radius: 3px; flex: 0 0 auto; }
+.opacity-field { margin-top: 12px; margin-bottom: 0; }
+
+/* ---------- ranked list ---------- */
+#site-list { list-style: none; margin: 0; padding: 0; }
+
+.site-item {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.site-item:hover { background: var(--panel-2); border-color: var(--line); }
+.site-item .r { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.site-item .s { font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+.site-item .meta { color: var(--muted); font-size: 11px; }
+.site-item .flag { color: var(--flag); }
+
+/* ---------- map ---------- */
+#map-wrap { position: relative; flex: 1 1 auto; }
+#map { position: absolute; inset: 0; background: #0d0f0c; }
+
+#sidebar-toggle {
+  position: absolute;
+  top: 10px; left: 10px;
+  z-index: 500;
+  width: 34px; height: 34px;
+  display: none;
+  padding: 0;
+}
+
+.legend {
+  position: absolute;
+  right: 10px; bottom: 22px;
+  z-index: 500;
+  background: rgba(16, 19, 15, 0.92);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 9px 11px;
+  font-size: 11px;
+  max-width: 220px;
+  pointer-events: none;
+}
+.legend:empty { display: none; }
+.legend h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; }
+.legend .row { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+.legend .bar { height: 9px; width: 100%; border-radius: 2px; margin-bottom: 4px; }
+.legend .ends { display: flex; justify-content: space-between; color: var(--muted); }
+
+/* ---------- popup ---------- */
+.leaflet-popup-content-wrapper {
+  background: var(--panel);
+  color: var(--text);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+.leaflet-popup-tip { background: var(--panel); border: 1px solid var(--line); }
+.leaflet-popup-content { margin: 12px 14px; font-size: 12px; min-width: 240px; }
+
+.pop h3 { margin: 0 0 2px; font-size: 14px; }
+.pop .score-line { color: var(--accent); font-weight: 600; margin-bottom: 9px; }
+.pop dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0 0 8px; }
+.pop dt { color: var(--muted); }
+.pop dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.pop .bars { margin: 8px 0; }
+.pop .bar-row { display: grid; grid-template-columns: 74px 1fr 34px; gap: 6px; align-items: center; margin-bottom: 3px; color: var(--muted); font-size: 11px; }
+.pop .bar-track { background: var(--panel-2); border-radius: 3px; height: 7px; overflow: hidden; }
+.pop .bar-fill { background: var(--accent-dim); height: 100%; }
+.pop .flagbox {
+  background: rgba(224, 160, 60, 0.13);
+  border: 1px solid rgba(224, 160, 60, 0.4);
+  color: var(--flag);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+.pop .coords { color: var(--muted); font-size: 11px; margin-top: 8px; }
+.pop a { color: var(--accent); }
+
+footer { padding: 12px 16px 18px; color: var(--muted); font-size: 11px; }
+footer p { margin: 0 0 7px; }
+.disclaimer { border-left: 2px solid var(--flag); padding-left: 8px; color: #c8b48a; }
+
+@media (max-width: 780px) {
+  #sidebar { position: absolute; z-index: 900; height: 100%; transform: translateX(-100%); transition: transform 0.2s; }
+  #sidebar.open { transform: none; }
+  #sidebar-toggle { display: block; }
+}

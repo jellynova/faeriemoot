@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 data/
 .DS_Store
+
+# Generated pipeline outputs - reproducible via `forage run`.
+output/
+web/data/
