@@ -32,16 +32,26 @@ STAGES = {
 ORDER = ["terrain", "vegetation", "access", "observations", "landstatus", "scoring", "export"]
 
 ConfigOpt = typer.Option("config/pipeline.json", "--config", "-c", help="Pipeline config file.")
+AoiOpt = typer.Option(None, "--aoi", help="AOI polygon, overriding the config. Re-targets the whole pipeline.")
+SpeciesOpt = typer.Option(None, "--species", help="Species profile, overriding the config.")
 
 
 def _log(msg: str = "") -> None:
+    """Stage output. Markup is disabled because stages prefix their lines with
+    tags like ``[access]``, which Rich would otherwise parse as a style and
+    swallow."""
+    console.print(msg, highlight=False, markup=False)
+
+
+def _say(msg: str = "") -> None:
+    """CLI's own output, where Rich markup is intentional."""
     console.print(msg, highlight=False)
 
 
 def _run_stage(name: str, cfg, **kwargs):
     started = time.time()
     result = STAGES[name](cfg, log=_log, **kwargs)
-    _log(f"[dim]  {name} finished in {time.time() - started:.1f}s[/dim]\n")
+    _say(f"[dim]  {name} finished in {time.time() - started:.1f}s[/dim]\n")
     return result
 
 
@@ -50,12 +60,14 @@ def run(
     config: str = ConfigOpt,
     skip: str = typer.Option("", help="Comma-separated stages to skip."),
     only: str = typer.Option("", help="Comma-separated stages to run, in pipeline order."),
+    aoi: str = AoiOpt,
+    species: str = SpeciesOpt,
     reuse_imagery: bool = typer.Option(
         False, "--reuse-imagery",
         help="Reuse cached Sentinel-2 index composites instead of re-downloading."),
 ):
     """Run the full pipeline: terrain -> vegetation -> access -> observations -> land status -> scoring -> export."""
-    cfg = load_config(config)
+    cfg = load_config(config, aoi=aoi, species=species)
     _banner(cfg)
 
     skipped = {s.strip() for s in skip.split(",") if s.strip()}
@@ -71,15 +83,15 @@ def run(
         kwargs = {"reuse_indices": reuse_imagery} if name == "vegetation" else {}
         _run_stage(name, cfg, **kwargs)
 
-    _log(f"[bold green]Pipeline complete in {time.time() - started:.1f}s[/bold green]")
-    _log(f"Ranked sites: {cfg.output('sites.geojson').relative_to(cfg.root)}")
-    _log(f"Web assets:   web/data/{cfg.aoi_id}/")
-    _log("\nServe the map with:  [bold]python -m http.server -d web 8000[/bold]")
+    _say(f"[bold green]Pipeline complete in {time.time() - started:.1f}s[/bold green]")
+    _say(f"Ranked sites: {cfg.output('sites.geojson').relative_to(cfg.root)}")
+    _say(f"Web assets:   web/data/{cfg.aoi_id}/")
+    _say("\nServe the map with:  [bold]python -m http.server -d web 8000[/bold]")
 
 
 def _stage_command(name: str):
-    def command(config: str = ConfigOpt):
-        cfg = load_config(config)
+    def command(config: str = ConfigOpt, aoi: str = AoiOpt, species: str = SpeciesOpt):
+        cfg = load_config(config, aoi=aoi, species=species)
         _banner(cfg)
         _run_stage(name, cfg)
     command.__name__ = name
@@ -99,15 +111,15 @@ def areas(config: str = ConfigOpt):
     active = cfg.aoi_path.resolve()
     for path in sorted(aoi_dir.glob("*.geojson")):
         mark = "[bold green]*[/bold green]" if path.resolve() == active else " "
-        _log(f" {mark} {path.stem}  [dim]({path.relative_to(cfg.root)})[/dim]")
-    _log("\nPoint `aoi` in the config file at another polygon to re-target the pipeline.")
+        _say(f" {mark} {path.stem}  [dim]({path.relative_to(cfg.root)})[/dim]")
+    _say("\nPoint `aoi` in the config file at another polygon to re-target the pipeline.")
 
 
 def _banner(cfg) -> None:
     sp = cfg.species
-    _log(f"[bold]{cfg.aoi_label}[/bold]  |  {sp.get('common_name')} "
+    _say(f"[bold]{cfg.aoi_label}[/bold]  |  {sp.get('common_name')} "
          f"([italic]{sp.get('scientific_name')}[/italic])")
-    _log(f"[dim]grid {cfg.resolution:g} m  |  origin {cfg.pipeline['access']['origin']['name']}[/dim]\n")
+    _say(f"[dim]grid {cfg.resolution:g} m  |  origin {cfg.pipeline['access']['origin']['name']}[/dim]\n")
 
 
 if __name__ == "__main__":

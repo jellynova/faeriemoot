@@ -99,10 +99,25 @@ class Config:
         return self.output_dir / name
 
 
-def load_config(pipeline_path: str | Path = "config/pipeline.json", root: str | Path | None = None) -> Config:
+def load_config(
+    pipeline_path: str | Path = "config/pipeline.json",
+    root: str | Path | None = None,
+    aoi: str | Path | None = None,
+    species: str | Path | None = None,
+) -> Config:
+    """Load the pipeline config.
+
+    ``aoi`` and ``species`` override the paths named in the config file, so a
+    different region or target can be run without editing anything on disk.
+    """
     pipeline_path = Path(pipeline_path)
     root = Path(root) if root else _find_root(pipeline_path)
     pipeline = load_json(root / pipeline_path if not pipeline_path.is_absolute() else pipeline_path)
+
+    if aoi:
+        pipeline["aoi"] = str(aoi)
+    if species:
+        pipeline["species"] = str(species)
 
     species = load_json(root / pipeline["species"])
     weights = load_json(root / pipeline["weights"])

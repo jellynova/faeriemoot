@@ -1,0 +1,47 @@
+{
+  "type": "FeatureCollection",
+  "name": "nelson",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3/CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "nelson",
+        "label": "Nelson",
+        "note": "Second area, added to verify the pipeline re-targets on an AOI swap alone."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -117.55,
+              49.4
+            ],
+            [
+              -117.1,
+              49.4
+            ],
+            [
+              -117.1,
+              49.68
+            ],
+            [
+              -117.55,
+              49.68
+            ],
+            [
+              -117.55,
+              49.4
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
