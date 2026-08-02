@@ -1,0 +1,49 @@
+{
+  "$comment": "Target profile. Copy this file and edit to add a new target plant; point pipeline.json at it.",
+
+  "id": "arnica_latifolia",
+  "common_name": "Mountain arnica",
+  "scientific_name": "Arnica latifolia",
+
+  "habitat_note": "Subalpine meadows AND open subalpine forest / forest edge. Deliberately NOT restricted to treeless meadow: A. latifolia is common under open canopy, so the vegetation stage scores a band of canopy openness rather than applying a binary meadow/forest cut.",
+
+  "observations": {
+    "taxon_name": "Arnica latifolia",
+    "genus_fallback": "Arnica",
+    "$comment": "Only ~6 research-grade A. latifolia records exist in the West Kootenays AOI, so the observation layer is a weak positive signal, never a filter. congeners_downweight lists look-alike congeners whose habitat differs enough that their records should not boost meadow sites.",
+    "congeners_downweight": ["Arnica cordifolia"],
+    "quality_grade": "research",
+    "boost_radius_m": 1200,
+    "months": [6, 7, 8]
+  },
+
+  "terrain": {
+    "elevation_m": { "hard_min": 1300, "optimal_min": 1500, "optimal_max": 2100, "hard_max": 2500 },
+    "slope_deg":   { "optimal_min": 4, "optimal_max": 25, "hard_max": 38 },
+    "aspect": {
+      "$comment": "Preferred bearing in compass degrees. 202.5 = SSW, midpoint of the south-to-southwest window in the spec. tolerance_deg is the half-width of the full-credit arc; credit falls off cosine-wise beyond it. Flat cells (below flat_slope_deg) are exempt since aspect is meaningless there.",
+      "optimal_bearing_deg": 202.5,
+      "tolerance_deg": 45.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+
+  "vegetation": {
+    "$comment": "Thresholds are tuned against the canopy-openness continuum, not a single NDVI cut. ndvi separates vegetated from bare/rock/clearcut; ndmi carries the canopy-closure signal.",
+    "ndvi":    { "hard_min": 0.30, "optimal_min": 0.45, "optimal_max": 0.85 },
+    "ndmi":    { "$comment": "Higher = denser, wetter canopy - conifer canopies hold water and self-shadow, suppressing SWIR. Calibrated against West Kootenays reference populations: valley conifer forest medians 0.303, open high ground medians 0.105.",
+                 "open_max": 0.12, "closed_min": 0.34 },
+    "texture": { "$comment": "Sub-pixel stddev of 10 m NDVI within each 30 m cell. Measured but NOT used for closure: against reference populations open ground came out ROUGHER than closed canopy (0.0353 vs 0.0195), the opposite of the usual assumption, because alpine is a rock/heath/krummholz mosaic while closed canopy is uniform at 10 m. It is also the weakest of the three signals (AUC 0.71), so it is written as a diagnostic layer only. Set closure_texture_weight above 0 to fold it back in.",
+                 "smooth_max": 0.012, "rough_min": 0.060 },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "$comment": "Relative credit by canopy class. Open forest is genuinely good habitat for this species, so it scores nearly as well as meadow.",
+      "meadow": 1.0,
+      "open_forest": 0.85,
+      "closed_forest": 0.15,
+      "bare": 0.05
+    }
+  },
+
+  "imagery_window_override": null
+}

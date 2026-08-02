@@ -1,0 +1,68 @@
+{
+  "$comment": "Global pipeline settings. Swap `aoi` to re-target the whole pipeline at a new region.",
+
+  "aoi": "config/aoi/west_kootenays.geojson",
+  "species": "config/species/arnica_latifolia.json",
+  "weights": "config/weights.json",
+
+  "grid": {
+    "$comment": "Analysis grid. All layers are warped onto this before scoring. crs=null auto-selects the local UTM zone from the AOI centroid.",
+    "resolution_m": 30,
+    "crs": null
+  },
+
+  "access": {
+    "$comment": "origin = where drive time is measured FROM. Change this to your own trailhead/home base; it is not baked into the pipeline anywhere else.",
+    "origin": {
+      "name": "Rossland, BC",
+      "lon": -117.7997,
+      "lat": 49.0781
+    },
+    "max_drive_minutes": 90,
+    "max_hike_km": 6.0,
+    "road_speeds_kmh": {
+      "highway": 90,
+      "arterial": 60,
+      "collector": 50,
+      "local": 40,
+      "resource": 30,
+      "unknown": 30
+    },
+    "drivable_surfaces": ["paved", "loose", "rough", "seasonal", "unknown"],
+    "$comment_hike": "Tobler's hiking function base speed; terrain penalty applied per-cell from slope.",
+    "hike_base_speed_kmh": 5.0,
+    "offtrail_penalty": 1.6
+  },
+
+  "imagery": {
+    "$comment": "Seasonal window for NDVI. Expressed as month-day so it applies across all `years`.",
+    "window_start": "06-20",
+    "window_end": "07-31",
+    "years": [2023, 2024, 2025],
+    "max_cloud_cover": 20,
+    "collection": "sentinel-2-l2a",
+    "composite": "median",
+    "$comment_scenes": "Clearest N dates in the window are composited. More scenes = better cloud-gap filling, linearly more download.",
+    "max_scenes": 8
+  },
+
+  "terrain": {
+    "$comment": "dem_source: 'copernicus' (30 m, global) or 'lidarbc' (1 m, partial BC coverage). Pluggable so LiDAR can refine top sites later.",
+    "dem_source": "copernicus",
+    "dem_collection": "cop-dem-glo-30",
+    "smooth_sigma": 1.0
+  },
+
+  "sites": {
+    "$comment": "How scored cells are clustered into named candidate sites shown as map pins.",
+    "min_score": 0.45,
+    "min_area_ha": 0.5,
+    "max_sites": 400
+  },
+
+  "paths": {
+    "cache": "data/raw",
+    "interim": "data/interim",
+    "output": "output"
+  }
+}
