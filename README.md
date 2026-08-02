@@ -268,10 +268,16 @@ iNaturalist counts, and land-status flag.
 ## Map UI
 
 Leaflet, vendored locally so it works offline. Toggleable layers for
-suitability, elevation, slope, aspect, NDVI, vegetation class, land tenure,
-roads, trails, protected areas and observations. Filters for minimum score,
-max drive time, max hike distance, elevation band, and hiding flagged land.
-Vector layers are fetched only when switched on.
+suitability, elevation, slope, aspect, NDVI, vegetation class, years since
+logging, land tenure, roads, trails, protected areas and observations. Filters
+for minimum score, max drive time, max hike distance, elevation band, hiding
+flagged land and hiding recently logged ground. Vector layers are fetched only
+when switched on, since roads alone is several MB.
+
+**Getting sites into the field:** the ranked list exports as **GPX** (waypoints
+for a GPS or phone, carrying elevation, score, drive/hike and land status in
+the description) or **CSV**. Both export exactly what the current filters
+leave visible, not the whole list.
 
 ---
 

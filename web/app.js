@@ -208,6 +208,15 @@
       syncOutputs(); render();
     });
 
+    $("export-gpx").addEventListener("click", function () {
+      var f = visibleSites();
+      if (f.length) download(current.id + "-sites.gpx", "application/gpx+xml", toGPX(f));
+    });
+    $("export-csv").addEventListener("click", function () {
+      var f = visibleSites();
+      if (f.length) download(current.id + "-sites.csv", "text/csv", toCSV(f));
+    });
+
     $("sidebar-toggle").addEventListener("click", function () {
       $("sidebar").classList.toggle("open");
     });
@@ -290,6 +299,65 @@
     if (!visible.length) {
       ol.innerHTML = '<li style="color:#9aa892">No sites match these filters.</li>';
     }
+  }
+
+  // ------------------------------------------------------------- downloads
+  function visibleSites() {
+    return current ? current.sites.filter(function (f) { return passesFilters(f.properties); }) : [];
+  }
+
+  function download(name, mime, text) {
+    var url = URL.createObjectURL(new Blob([text], { type: mime }));
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function esc(v) {
+    return String(v === null || v === undefined ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function toGPX(feats) {
+    var sp = (current.manifest.species || {}).scientific_name || "target";
+    var head = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<gpx version="1.1" creator="Foraging Suitability Mapper" ' +
+      'xmlns="http://www.topografix.com/GPX/1/1">\n' +
+      "<metadata><name>" + esc(current.manifest.aoi.label) + " - " + esc(sp) + "</name></metadata>\n";
+    var body = feats.map(function (f) {
+      var p = f.properties, c = f.geometry.coordinates;
+      // Elevation goes in <ele> so a GPS shows it natively.
+      return '<wpt lat="' + c[1] + '" lon="' + c[0] + '">' +
+        "<ele>" + (p.elevation_m || 0) + "</ele>" +
+        "<name>" + esc("#" + p.rank + " " + p.score.toFixed(2) + " " + p.elevation_m + "m " + p.aspect_compass) + "</name>" +
+        "<desc>" + esc(
+          "score " + p.score.toFixed(3) +
+          "; " + p.veg_class +
+          "; slope " + p.slope_deg + " deg" +
+          "; drive " + p.drive_minutes + " min" +
+          "; hike " + p.hike_km + " km" +
+          "; " + p.land_status_label +
+          (p.on_cutblock ? "; logged " + p.years_since_logging + " yr ago" : "")
+        ) + "</desc>" +
+        "<sym>Flag, Green</sym></wpt>";
+    }).join("\n");
+    return head + body + "\n</gpx>\n";
+  }
+
+  function toCSV(feats) {
+    var cols = ["rank", "score", "lat", "lon", "elevation_m", "aspect_compass", "slope_deg",
+                "veg_class", "years_since_logging", "area_ha", "drive_minutes", "hike_km",
+                "hike_minutes", "land_status_label", "inat_nearby"];
+    var rows = feats.map(function (f) {
+      var p = f.properties, c = f.geometry.coordinates;
+      return cols.map(function (k) {
+        var v = k === "lat" ? c[1] : k === "lon" ? c[0] : p[k];
+        v = v === null || v === undefined ? "" : String(v);
+        return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+      }).join(",");
+    });
+    return cols.join(",") + "\n" + rows.join("\n") + "\n";
   }
 
   function bar(label, value) {

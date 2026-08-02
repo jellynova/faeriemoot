@@ -97,6 +97,9 @@ button:hover { border-color: var(--accent-dim); }
 .opacity-field { margin-top: 12px; margin-bottom: 0; }
 .layer-note { color: var(--muted); font-size: 10px; font-style: italic; }
 
+.exports { display: flex; gap: 6px; margin-bottom: 10px; }
+.exports button { flex: 1 1 0; }
+
 /* ---------- ranked list ---------- */
 #site-list { list-style: none; margin: 0; padding: 0; }
 
