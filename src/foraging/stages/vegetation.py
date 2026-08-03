@@ -35,7 +35,14 @@ from affine import Affine
 from ..config import Config
 from ..curves import trapezoid
 from ..grid import Grid
-from ..sources.sentinel import SCL_KEEP, read_band, read_scl, search_scenes, select_per_tile
+from ..sources.sentinel import (
+    SCL_KEEP,
+    BandReadError,
+    read_band,
+    read_scl,
+    search_scenes,
+    select_per_tile,
+)
 
 # Categorical output for the UI's vegetation layer.
 CLASS_NODATA, CLASS_BARE, CLASS_MEADOW, CLASS_OPEN_FOREST, CLASS_CLOSED_FOREST = 0, 1, 2, 3, 4
@@ -157,13 +164,21 @@ def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = 
 
     fine_transform, fine_shape = _fine_grid(grid)
     ndvi_stack, tex_stack, ndmi_stack = [], [], []
+    failed: list = []
 
     for i, sc in enumerate(scenes, 1):
         log(f"  [{i}/{len(scenes)}] {sc.date} {sc.tile}  cloud={sc.cloud:.1f}%")
 
-        red = read_band(sc, "B04", grid.crs, fine_transform, fine_shape)
-        nir = read_band(sc, "B08", grid.crs, fine_transform, fine_shape)
-        scl = read_scl(sc, grid.crs, fine_transform, fine_shape)
+        try:
+            red = read_band(sc, "B04", grid.crs, fine_transform, fine_shape, log=log)
+            nir = read_band(sc, "B08", grid.crs, fine_transform, fine_shape, log=log)
+            scl = read_scl(sc, grid.crs, fine_transform, fine_shape, log=log)
+        except BandReadError as exc:
+            # One unreadable scene should cost that scene, not the whole run -
+            # the composite is a median over several dates and tolerates a gap.
+            log(f"    ! skipping {sc.date} {sc.tile}: {exc}")
+            failed.append(sc)
+            continue
 
         keep = np.isin(scl, SCL_KEEP)
         del scl
@@ -186,7 +201,13 @@ def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = 
         nir[~keep] = np.nan
         nir30 = _block_stats(nir)[0]
         del nir
-        swir30 = read_band(sc, "B11", grid.crs, grid.transform, grid.shape)
+        try:
+            swir30 = read_band(sc, "B11", grid.crs, grid.transform, grid.shape, log=log)
+        except BandReadError as exc:
+            # NDVI for this scene is already banked; only NDMI is lost.
+            log(f"    ! no SWIR for {sc.date} {sc.tile}: {exc}")
+            del keep
+            continue
         keep30 = _block_stats(keep.astype("float32"))[0] > 0.5
         del keep
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -194,7 +215,24 @@ def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = 
         ndmi[~keep30 | ~np.isfinite(ndmi)] = np.nan
         ndmi_stack.append(ndmi.astype("float32"))
 
-    log(f"[vegetation] compositing {len(ndvi_stack)} scenes (median)")
+    if failed:
+        log(f"[vegetation] {len(failed)} scene(s) skipped after repeated read errors")
+    if not ndvi_stack:
+        raise RuntimeError(
+            "every Sentinel-2 scene failed to read. This is normally a network "
+            "problem rather than a data one - re-run `forage run --only vegetation`, "
+            "which resumes from the cached DEM and road layers."
+        )
+    if not ndmi_stack:
+        raise RuntimeError(
+            "no SWIR band could be read, so canopy closure cannot be computed. "
+            "Re-run `forage run --only vegetation`."
+        )
+    # The NDMI stack can be shorter than the NDVI one when a scene's SWIR read
+    # failed after its NDVI was already banked; each index is composited
+    # independently, so a mismatch is fine.
+    log(f"[vegetation] compositing {len(ndvi_stack)} scene(s) NDVI, "
+        f"{len(ndmi_stack)} NDMI (median)")
     with np.errstate(invalid="ignore"), warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
         ndvi = np.nanmedian(np.stack(ndvi_stack), axis=0)

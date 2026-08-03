@@ -247,6 +247,30 @@ after any significant retune.
 
 ---
 
+## Troubleshooting
+
+**`WarpOperationError: Chunk and warp failed`, or `TIFFFillTile: got 0 bytes`**
+during the vegetation stage. A truncated HTTP range read from the imagery host
+— a network hiccup, not bad data. Reads retry with backoff and re-sign the URL,
+and a scene that still fails is skipped rather than sinking the run. If it
+happens anyway, just re-run:
+
+```bash
+forage run --only vegetation,scoring,export
+```
+
+The DEM, road, tenure and cutblock layers are cached on disk, so this resumes
+rather than starting over.
+
+**`forage: command not found`** — the virtualenv is not active. `source
+.venv/bin/activate`, or call `.venv/bin/forage` directly.
+
+**Map loads but says "Could not load data"** — either `forage run` has not been
+run yet, or `index.html` was opened as a file. It has to be served over HTTP:
+`python -m http.server -d web 8000`.
+
+---
+
 ## Outputs
 
 ```
