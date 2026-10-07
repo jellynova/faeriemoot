@@ -21,6 +21,7 @@ from shapely.geometry import Point
 from ..config import Config
 from ..curves import weighted_mean
 from ..grid import Grid
+from .forest import CLASS_NAMES as FOREST_CLASS_NAMES
 from .landstatus import CLASS_KEYS, CLASS_LABELS
 from .vegetation import CLASS_NAMES as VEG_CLASS_NAMES
 
@@ -45,9 +46,14 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     if grid is None:
         _, grid = Grid.read(cfg.interim("elevation.tif"))
 
+    # The habitat component is whichever stage the species profile names:
+    # Sentinel-2 vegetation for a meadow plant, VRI forest for a mycorrhizal
+    # fungus. Only that one is read, so a stray file from another model can
+    # never leak into the score.
+    habitat = cfg.habitat_model
     components = {
         "terrain": _read(cfg, "score_terrain"),
-        "vegetation": _read(cfg, "score_vegetation"),
+        habitat: _read(cfg, f"score_{habitat}"),
         "access": _read(cfg, "score_access"),
         "observations": _read(cfg, "score_observations"),
     }
@@ -58,9 +64,9 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     weights = cfg.weights["weights"]
     score = weighted_mean(components, weights).astype("float32")
 
-    # Terrain and vegetation carry the hard filters; a cell rejected by either
-    # is not a candidate at all, regardless of how it scores elsewhere.
-    for key in ("terrain", "vegetation"):
+    # Terrain and the habitat layer carry the hard filters; a cell rejected by
+    # either is not a candidate at all, regardless of how it scores elsewhere.
+    for key in ("terrain", habitat):
         score = np.where(np.isfinite(components[key]), score, np.nan)
 
     excluded = _read(cfg, "land_excluded")
@@ -134,7 +140,14 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         "hike_km": _read(cfg, "hike_km"),
         "land_tenure": _read(cfg, "land_tenure"),
         "logging_age": _read(cfg, "logging_age"),
+        "forest_class": _read(cfg, "forest_class"),
+        "host_pct": _read(cfg, "host_pct"),
+        "stand_age": _read(cfg, "stand_age"),
+        "crown_closure_vri": _read(cfg, "crown_closure_vri"),
+        "vri_stand": _read(cfg, "vri_stand"),
     }
+    stand_labels = _load_stand_labels(cfg)
+    habitat_is_forest = cfg.habitat_model == "forest"
 
     idx = np.arange(1, n + 1)
     sizes = ndimage.sum_labels(np.ones_like(score, dtype="float32"), labels, idx)
@@ -175,7 +188,13 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
 
         tenure_code = int(at("land_tenure", 0) or 0)
         tenure_key = CLASS_KEYS.get(tenure_code, "crown_land")
-        veg_code = int(at("veg_class", 0) or 0)
+        # veg_class is the habitat label from whichever model ran, so the
+        # popup, GPX and CSV read sensibly for either kind of target.
+        if habitat_is_forest:
+            veg_label = FOREST_CLASS_NAMES.get(int(at("forest_class", 0) or 0), "unknown")
+        else:
+            veg_label = VEG_CLASS_NAMES.get(int(at("veg_class", 0) or 0), "unknown")
+        stand_id = int(at("vri_stand", 0) or 0)
         aspect = at("aspect")
 
         rows.append({
@@ -189,7 +208,11 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "aspect_compass": compass_label(float(aspect)) if aspect is not None else "n/a",
             "ndvi": None if at("ndvi") is None else round(float(at("ndvi")), 3),
             "canopy_closure": None if at("canopy_closure") is None else round(float(at("canopy_closure")), 3),
-            "veg_class": VEG_CLASS_NAMES.get(veg_code, "unknown"),
+            "veg_class": veg_label,
+            "stand": stand_labels.get(stand_id) if habitat_is_forest else None,
+            "host_pct": None if at("host_pct") is None else round(float(at("host_pct"))),
+            "stand_age": None if at("stand_age") is None else int(at("stand_age")),
+            "crown_closure_vri": None if at("crown_closure_vri") is None else int(at("crown_closure_vri")),
             "years_since_logging": None if at("logging_age") is None else int(at("logging_age")),
             "on_cutblock": at("logging_age") is not None,
             "drive_minutes": None if at("drive_minutes") is None else round(float(at("drive_minutes")), 1),
@@ -199,7 +222,8 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "land_status_label": CLASS_LABELS.get(tenure_key, tenure_key),
             "land_flagged": tenure_key != cfg.weights["legality"].get("unflagged_default", "crown_land"),
             "score_terrain": _round_at(components["terrain"], r, c),
-            "score_vegetation": _round_at(components["vegetation"], r, c),
+            "score_vegetation": _round_at(components.get("vegetation"), r, c),
+            "score_forest": _round_at(components.get("forest"), r, c),
             "score_access": _round_at(components["access"], r, c),
             "score_observations": _round_at(components["observations"], r, c),
             "_x": x,
@@ -208,7 +232,11 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
 
     gdf = gpd.GeoDataFrame(rows, geometry=[Point(r["_x"], r["_y"]) for r in rows], crs=grid.crs)
     gdf = gdf.drop(columns=["_x", "_y"])
-    gdf = gdf.sort_values("score", ascending=False).head(max_sites).reset_index(drop=True)
+    # Peak score alone ties easily: plateaued membership curves put every mature
+    # Douglas-fir-leading stand by a road at the same value. Ties go to the
+    # patch with more good ground around its peak, then to the bigger patch.
+    gdf = (gdf.sort_values(["score", "mean_score", "area_ha"], ascending=False)
+           .head(max_sites).reset_index(drop=True))
     gdf["rank"] = np.arange(1, len(gdf) + 1)
 
     # Observation counts are measured on the real points, not the smoothed
@@ -283,6 +311,16 @@ def _round_at(arr, r, c, nd=3):
     return round(v, nd) if np.isfinite(v) else None
 
 
+def _load_stand_labels(cfg) -> dict[int, str]:
+    path = cfg.interim("vri_stands.csv")
+    if not path.exists():
+        return {}
+    import pandas as pd
+
+    df = pd.read_csv(path, index_col=0)
+    return {int(k): (v if isinstance(v, str) else "") for k, v in df["label"].items()}
+
+
 def _load_observations(cfg) -> gpd.GeoDataFrame | None:
     path = cfg.output("observations.geojson")
     if not path.exists():
@@ -330,10 +368,13 @@ def _write_manifest(cfg, gdf, grid) -> None:
             "habitat_note": cfg.species.get("habitat_note"),
         },
         "origin": cfg.pipeline["access"]["origin"],
-        "weights": cfg.weights["weights"],
+        "habitat_model": cfg.habitat_model,
+        "season": cfg.species.get("season"),
+        "weights": {k: v for k, v in cfg.weights["weights"].items()
+                    if k in ("terrain", cfg.habitat_model, "access", "observations")},
         "imagery_window": {
             k: cfg.imagery_window().get(k) for k in ("window_start", "window_end", "years")
-        },
+        } if cfg.habitat_model == "vegetation" else None,
         "filters": {
             "max_drive_minutes": cfg.pipeline["access"]["max_drive_minutes"],
             "max_hike_km": cfg.pipeline["access"]["max_hike_km"],

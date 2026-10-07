@@ -1,8 +1,9 @@
 /* Foraging Suitability Mapper - map UI.
  *
- * Everything here is driven by web/data/<aoi>/manifest.json, so adding a new
- * area of interest means running the pipeline against a new polygon; no code
- * in this file knows anything about the West Kootenays.
+ * Everything here is driven by web/data/<aoi>/<species>/manifest.json, so
+ * adding a new area or target means running the pipeline against a new polygon
+ * or species profile; no code in this file knows anything about the West
+ * Kootenays.
  */
 (function () {
   "use strict";
@@ -29,6 +30,14 @@
     ["#19462d", "Closed forest"],
     ["#c67a3e", "Regenerating cutblock"],
     ["#aa9682", "Bare / rock / scree"]
+  ];
+
+  var FOREST_LEGEND = [
+    ["#e1be3c", "Host-leading stand"],
+    ["#6eaa5a", "Mixed stand with host trees"],
+    ["#5f786e", "Forest without host trees"],
+    ["#c67a3e", "Young / regenerating stand"],
+    ["#beb496", "Non-forest"]
   ];
 
   var TENURE_LEGEND = [
@@ -106,7 +115,8 @@
         idx.areas.forEach(function (a) {
           var o = document.createElement("option");
           o.value = a.id;
-          o.textContent = a.label + " (" + a.sites + " sites)";
+          o.textContent = a.label + (a.common_name ? " - " + a.common_name : "") +
+                          " (" + a.sites + " sites)";
           sel.appendChild(o);
         });
         sel.addEventListener("change", function () { loadArea(sel.value); });
@@ -167,12 +177,15 @@
     setRange("f-score", 0, 1, 0);
     $("f-score").step = 0.01;
 
-    var w = m.imagery_window || {};
+    var w = m.imagery_window;
     var origin = m.origin || {};
+    var habitat = w
+      ? "Imagery " + (w.window_start || "") + " to " + (w.window_end || "") +
+        " across " + ((w.years || []).join(", ")) + "."
+      : "Habitat from the BC Vegetation Resources Inventory (tree species and stand age).";
+    var season = m.season && m.season.label ? " " + m.season.label + "." : "";
     $("provenance").textContent =
-      "Drive times from " + (origin.name || "origin") + ". Imagery " +
-      (w.window_start || "") + " to " + (w.window_end || "") +
-      " across " + ((w.years || []).join(", ")) + ".";
+      "Drive times from " + (origin.name || "origin") + ". " + habitat + season;
 
     syncOutputs();
   }
@@ -210,11 +223,11 @@
 
     $("export-gpx").addEventListener("click", function () {
       var f = visibleSites();
-      if (f.length) download(current.id + "-sites.gpx", "application/gpx+xml", toGPX(f));
+      if (f.length) download(fileStem() + "-sites.gpx", "application/gpx+xml", toGPX(f));
     });
     $("export-csv").addEventListener("click", function () {
       var f = visibleSites();
-      if (f.length) download(current.id + "-sites.csv", "text/csv", toCSV(f));
+      if (f.length) download(fileStem() + "-sites.csv", "text/csv", toCSV(f));
     });
 
     $("sidebar-toggle").addEventListener("click", function () {
@@ -302,6 +315,10 @@
   }
 
   // ------------------------------------------------------------- downloads
+  function fileStem() {
+    return current.id.replace(/\//g, "-");
+  }
+
   function visibleSites() {
     return current ? current.sites.filter(function (f) { return passesFilters(f.properties); }) : [];
   }
@@ -334,6 +351,7 @@
         "<desc>" + esc(
           "score " + p.score.toFixed(3) +
           "; " + p.veg_class +
+          (p.stand ? " (" + p.stand + (p.stand_age !== null ? ", " + p.stand_age + " yr" : "") + ")" : "") +
           "; slope " + p.slope_deg + " deg" +
           "; drive " + p.drive_minutes + " min" +
           "; hike " + p.hike_km + " km" +
@@ -347,7 +365,7 @@
 
   function toCSV(feats) {
     var cols = ["rank", "score", "lat", "lon", "elevation_m", "aspect_compass", "slope_deg",
-                "veg_class", "years_since_logging", "area_ha", "drive_minutes", "hike_km",
+                "veg_class", "stand", "stand_age", "years_since_logging", "area_ha", "drive_minutes", "hike_km",
                 "hike_minutes", "land_status_label", "inat_nearby"];
     var rows = feats.map(function (f) {
       var p = f.properties, c = f.geometry.coordinates;
@@ -375,11 +393,17 @@
       "<dl>" +
       "<dt>Aspect</dt><dd>" + (p.aspect_compass || "-") + " (" + fmt(p.aspect_deg) + "&deg;)</dd>" +
       "<dt>Slope</dt><dd>" + fmt(p.slope_deg, 1, "&deg;") + "</dd>" +
-      "<dt>Vegetation</dt><dd>" + (p.veg_class || "-") + "</dd>" +
+      "<dt>Habitat</dt><dd>" + (p.veg_class || "-") + "</dd>" +
+      (p.stand ? "<dt>Stand</dt><dd>" + esc(p.stand) + "</dd>" : "") +
+      (p.stand_age !== null && p.stand_age !== undefined
+        ? "<dt>Stand age</dt><dd>" + p.stand_age + " yr" +
+          (p.crown_closure_vri !== null && p.crown_closure_vri !== undefined
+            ? ", " + p.crown_closure_vri + "% crown closure" : "") + "</dd>"
+        : "") +
       (p.on_cutblock
         ? "<dt>Logged</dt><dd>" + p.years_since_logging + " yr ago</dd>"
         : "") +
-      "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>" +
+      (p.ndvi !== null && p.ndvi !== undefined ? "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>" : "") +
       "<dt>Patch area</dt><dd>" + fmt(p.area_ha, 1, " ha") + "</dd>" +
       "<dt>Drive</dt><dd>" + minutesLabel(p.drive_minutes) + "</dd>" +
       "<dt>Hike</dt><dd>" + fmt(p.hike_km, 2, " km") + " / " + minutesLabel(p.hike_minutes) + "</dd>" +
@@ -388,16 +412,20 @@
       "</dl>" +
       '<div class="bars">' +
         bar("Terrain", p.score_terrain) +
-        bar("Vegetation", p.score_vegetation) +
+        (p.score_forest !== null && p.score_forest !== undefined
+          ? bar("Host forest", p.score_forest)
+          : bar("Vegetation", p.score_vegetation)) +
         bar("Access", p.score_access) +
         bar("Observations", p.score_observations) +
       "</div>";
 
     if (p.on_cutblock && p.years_since_logging !== null && p.years_since_logging < 45) {
       html += '<div class="flagbox"><strong>Regenerating cutblock</strong><br>' +
-              "Logged " + p.years_since_logging + " years ago. Open ground here is " +
-              "harvest regrowth, not natural meadow - the score is already " +
-              "penalised for this.</div>";
+              "Logged " + p.years_since_logging + " years ago. " +
+              (current.manifest.habitat_model === "forest"
+                ? "Young stands rarely fruit - the score already reflects stand age."
+                : "Open ground here is harvest regrowth, not natural meadow - the " +
+                  "score is already penalised for this.") + "</div>";
     }
 
     if (p.land_flagged) {
@@ -527,8 +555,9 @@
     if (!spec) { box.innerHTML = ""; return; }
 
     var html = "<h3>" + spec.label + "</h3>";
-    if (activeLegend === "vegetation" || activeLegend === "land_tenure") {
-      var rows = activeLegend === "vegetation" ? VEG_LEGEND : TENURE_LEGEND;
+    var legends = { vegetation: VEG_LEGEND, forest_class: FOREST_LEGEND, land_tenure: TENURE_LEGEND };
+    if (legends[activeLegend]) {
+      var rows = legends[activeLegend];
       rows.forEach(function (r) {
         html += '<div class="row"><span class="swatch" style="background:' + r[0] + '"></span>' + r[1] + "</div>";
       });
@@ -539,7 +568,9 @@
       var grad = activeLegend === "suitability"
         ? "linear-gradient(90deg,#440154,#3b528b,#21918c,#5ec962,#fde725)"
         : activeLegend === "slope" ? "linear-gradient(90deg,#ffffcc,#fdb04a,#e35a3c,#800026)"
-        : activeLegend === "ndvi" ? "linear-gradient(90deg,#8c643c,#dcd28c,#5aaa46,#0a501e)"
+        : activeLegend === "ndvi" || activeLegend === "stand_age" || activeLegend === "logging_age"
+          ? "linear-gradient(90deg,#8c643c,#dcd28c,#5aaa46,#0a501e)"
+        : activeLegend === "host_pct" ? "linear-gradient(90deg,#3c3c46,#788c5a,#c8af46,#fad73c)"
         : "linear-gradient(90deg,#3c6e46,#96af6e,#bea578,#a0826e,#fafafc)";
       html += '<div class="bar" style="background:' + grad + '"></div>' +
               '<div class="ends"><span>' + fmt(spec.min, 2) + "</span><span>" + fmt(spec.max, 2) + "</span></div>";

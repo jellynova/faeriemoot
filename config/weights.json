@@ -1,9 +1,12 @@
 {
   "$comment": "Weights for the final suitability score. Components are each normalised to 0..1 before weighting, then the weighted mean is taken over whichever components are present. Weights need not sum to 1 (they are renormalised), so you can zero one out without rebalancing the rest.",
 
+  "$comment_habitat": "vegetation (Sentinel-2) and forest (VRI) are alternative habitat layers; only the one named by the species profile's habitat_model is used. A species profile can override any of these weights with weights_override.",
+
   "weights": {
     "terrain": 0.30,
     "vegetation": 0.30,
+    "forest": 0.30,
     "access": 0.20,
     "observations": 0.20
   },
@@ -33,6 +36,7 @@
     "enforce_elevation_hard_bounds": true,
     "enforce_slope_hard_max": true,
     "enforce_ndvi_hard_min": true,
+    "enforce_treed": true,
     "enforce_max_drive_minutes": false,
     "enforce_max_hike_km": false
   }

@@ -19,6 +19,20 @@ USER_AGENT = "foraging-suitability-mapper/0.1 (+https://github.com/jellynova/fae
 PER_PAGE = 200
 
 
+def in_taxon(taxon: str | None, name: str) -> bool:
+    """True if ``taxon`` is ``name`` or sits below it (``Cantharellus x`` in ``Cantharellus``).
+
+    Needed because ``taxon_name`` queries also match *synonyms*. Asking for
+    ``Cantharellus`` returns the false chanterelle, Hygrophoropsis aurantiaca
+    (once Cantharellus aurantiacus) and Craterellus tubaeformis (once
+    Cantharellus tubaeformis), so the response has to be filtered by the
+    names that actually come back.
+    """
+    if not isinstance(taxon, str) or not taxon:
+        return False
+    return taxon == name or taxon.startswith(name + " ")
+
+
 def fetch_observations(
     taxon_name: str,
     bbox_wgs84: tuple[float, float, float, float],

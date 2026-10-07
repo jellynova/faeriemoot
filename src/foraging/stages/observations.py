@@ -26,7 +26,7 @@ from scipy import ndimage
 
 from ..config import Config
 from ..grid import Grid
-from ..sources.inaturalist import fetch_observations
+from ..sources.inaturalist import fetch_observations, in_taxon
 
 # Weight applied to a record depending on how well it matches the target.
 WEIGHT_EXACT = 1.0
@@ -80,6 +80,30 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     if len(obs):
         obs = obs.drop_duplicates(subset="id")
         obs = obs[obs.geometry.within(cfg.aoi_geom)]
+        # iNaturalist resolves query names through synonyms, so a genus query
+        # can return look-alikes from other genera - for Cantharellus, the
+        # false chanterelle. Those must not boost anything.
+        queried = [n for n in (target, genus) if n]
+        member = obs["taxon"].map(lambda t: any(in_taxon(t, n) for n in queried))
+        if (~member).any():
+            log(f"[observations] dropped {int((~member).sum())} record(s) outside "
+                f"{' / '.join(queried)}: " +
+                ", ".join(sorted(set(obs.loc[~member, "taxon"].dropna()))))
+            obs = obs[member]
+
+    # Off unless the profile asks: obscured records' public coordinates are
+    # randomised across a ~20 km cell, and a boost centred on one is noise.
+    max_acc = ocfg.get("max_accuracy_m")
+    if len(obs) and (max_acc is not None or ocfg.get("drop_obscured")):
+        keep = np.ones(len(obs), dtype=bool)
+        if ocfg.get("drop_obscured"):
+            keep &= ~obs["obscured"].fillna(False).astype(bool).to_numpy()
+        if max_acc is not None:
+            acc = obs["accuracy_m"].astype("float64").to_numpy()
+            keep &= np.isfinite(acc) & (acc <= float(max_acc))
+        if (~keep).any():
+            log(f"[observations] dropped {int((~keep).sum())} obscured or imprecise record(s)")
+        obs = obs[keep]
 
     if not len(obs):
         log("[observations] none found - the layer contributes a flat baseline")

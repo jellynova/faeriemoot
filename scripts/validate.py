@@ -7,253 +7,355 @@ Two confounds have to be removed before iNaturalist records can test anything:
 
 1. **Circularity.** Observations feed the score, so validating the full score
    against them is partly self-fulfilling.
-2. **Sampling bias.** Botanists walk near roads and trails, and the access
-   layer rewards exactly that. A model that only learned "near a road" would
-   look good against observation locations.
+2. **Sampling bias.** Foragers and botanists walk near roads and trails, and the
+   access layer rewards exactly that. A model that only learned "near a road"
+   would look good against observation locations.
 
-Both are avoided by validating the **habitat-only** score - terrain and
-vegetation, with access and observations dropped. Nothing in that surface has
-seen an occurrence record or a road.
+Both are avoided by validating the **habitat-only** score - terrain plus the
+species' habitat layer (Sentinel-2 vegetation or VRI forest), with access and
+observations dropped. Nothing in that surface has seen an occurrence record or
+a road.
 
-Three comparisons are reported:
+The target group is compared against:
 
-* target species vs a **random null** drawn from scored cells - does the model
-  rank real occurrences above chance?
-* target species vs its **forest congener** (A. cordifolia) - the sharper test.
-  Both are Arnica, both are collected by the same people in the same places, so
-  sampling bias applies equally. If the model is modelling *habitat* rather
-  than *access*, the subalpine target should score above the forest congener.
-* elevation of each group, as a plain sanity check.
+* a **random null** drawn from the extent - does the model rank real
+  occurrences above chance?
+* a **contrast taxon** sharing the target's collectors, season and access bias
+  but not its habitat (the species profile's ``validation`` block) - the
+  sharper test, since sampling bias applies to both equally.
 
-Run with:  python scripts/validate.py
+Samples are small and spatially clustered, so every AUC carries a bootstrap
+CI and a one-sided Mann-Whitney p-value, and is reported twice: per record, and
+per *site* after merging same-group records within ``--decluster-m``. Records
+the hard filters reject are counted, not silently dropped: the "all" rows
+score them 0, which is what the model actually says about them. See
+``foraging/stats.py``.
+
+Run with:
+    python scripts/validate.py
+    python scripts/validate.py --species config/species/cantharellus_formosus.json
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
+import geopandas as gpd
 import numpy as np
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from foraging.config import load_config  # noqa: E402
-from foraging.curves import weighted_mean  # noqa: E402
+from foraging.curves import aspect_score, trapezoid, weighted_mean  # noqa: E402
 from foraging.grid import Grid  # noqa: E402
-from foraging.sources.inaturalist import fetch_observations  # noqa: E402
+from foraging.sources.inaturalist import fetch_observations, in_taxon  # noqa: E402
+from foraging.stats import (  # noqa: E402
+    auc,
+    bootstrap_auc,
+    mann_whitney_p,
+    midrank_percentile,
+    paired_bootstrap_delta,
+    per_cluster,
+    spatial_clusters,
+)
 
-TARGET = "Arnica latifolia"
-CONGENER = "Arnica cordifolia"
-CONFIGS = ["config/pipeline.validation.json"]
-N_NULL = 40000
+CONFIG = "config/pipeline.validation.json"
 # iNaturalist positional accuracy varies from 2 m to several kilometres. Point
 # sampling a 30-90 m cell is meaningless past a certain radius, so imprecise
 # records are excluded rather than quietly compared.
 MAX_ACCURACY_M = 100.0
-RNG = np.random.default_rng(20240802)
+# Records of the same group closer than this are treated as one site.
+DECLUSTER_M = 1000.0
+N_NULL_RASTER = 40000
+# A VRI-scored null costs a WFS round trip per 150 points.
+N_NULL_POINTS = 2000
+N_BOOT = 2000
+SEED = 20240802
 
 
-def habitat_score(cfg) -> tuple[np.ndarray, Grid, str]:
-    """Terrain + vegetation only - no access, no observations.
+# ------------------------------------------------------------------ records
+def load_records(cfg, vcfg: dict, max_accuracy_m: float) -> gpd.GeoDataFrame:
+    """Target and contrast records in the extent, labelled by group.
 
-    Falls back to terrain alone if the vegetation stage has not been run for
-    this extent, so the terrain model can be tested without waiting on imagery.
+    Fetched independently of the pipeline's own boost input and across all
+    months, so seasonality is not doing the work.
     """
-    terrain, grid = Grid.read(cfg.interim("score_terrain.tif"))
-    veg_path = cfg.interim("score_vegetation.tif")
-    w = cfg.weights["weights"]
-    if not veg_path.exists():
-        return terrain.astype("float32"), grid, "terrain only"
-    veg = Grid.read(veg_path)[0]
-    score = weighted_mean(
-        {"terrain": terrain, "vegetation": veg},
-        {"terrain": w["terrain"], "vegetation": w["vegetation"]},
-    )
-    # A cell rejected by either hard filter is not habitat at all.
-    score = np.where(np.isfinite(terrain) & np.isfinite(veg), score, np.nan)
-    return score.astype("float32"), grid, "terrain + vegetation"
+    frames = [
+        fetch_observations(q, tuple(cfg.aoi.total_bounds), cfg.cache_dir,
+                           quality_grade="research", months=None, log=lambda *a: None)
+        for q in vcfg["query_taxa"]
+    ]
+    frames = [f for f in frames if len(f)]
+    if not frames:
+        return gpd.GeoDataFrame({"group": [], "taxon": []}, geometry=[], crs="EPSG:4326")
+    obs = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs="EPSG:4326")
+    obs = obs.drop_duplicates(subset="id")
+    obs = obs[obs.geometry.within(cfg.aoi_geom)]
+
+    def group(taxon):
+        # Matched on returned names, not query names: a genus query also
+        # returns synonym look-alikes from other genera.
+        if any(in_taxon(taxon, n) for n in vcfg["target_taxa"]):
+            return "target"
+        if any(in_taxon(taxon, n) for n in vcfg["contrast_taxa"]):
+            return "contrast"
+        return None
+
+    obs["group"] = obs["taxon"].map(group)
+    obs = obs[obs["group"].notna()]
+    precise = obs["accuracy_m"].notna() & (obs["accuracy_m"] <= max_accuracy_m)
+    for g in ("target", "contrast"):
+        n_all, n_ok = int((obs["group"] == g).sum()), int((precise & (obs["group"] == g)).sum())
+        print(f"  {g}: {n_all} research-grade record(s), {n_ok} within "
+              f"{max_accuracy_m:g} m positional accuracy")
+    return obs[precise].reset_index(drop=True)
 
 
-def sample_at(arrays: dict, grid, gdf, require: str):
-    """Sample several aligned rasters at each point.
-
-    A point is kept only when ``require``'s raster is finite there, and every
-    other raster is read at the same kept points, so the returned columns stay
-    row-aligned. Sampling each raster independently would not: the habitat
-    score is NaN wherever a hard filter rejects a cell, while elevation is
-    finite almost everywhere.
-    """
-    proj = gdf.to_crs(grid.crs)
-    inv = ~grid.transform
-    out = {k: [] for k in arrays}
-    kept = []
-    for i, geom in zip(gdf.index, proj.geometry, strict=True):
-        col, row = inv * (geom.x, geom.y)
-        r, c = int(row), int(col)
-        if not (0 <= r < grid.height and 0 <= c < grid.width):
-            continue
-        if not np.isfinite(arrays[require][r, c]):
-            continue
-        for k, arr in arrays.items():
-            out[k].append(float(arr[r, c]))
-        kept.append(i)
-    return {k: np.array(v) for k, v in out.items()}, kept
+def null_points(grid: Grid, eligible: np.ndarray, n: int, rng) -> gpd.GeoDataFrame:
+    """Random cell centres from the extent (inside the AOI, with elevation)."""
+    rows, cols = np.nonzero(eligible)
+    pick = rng.choice(len(rows), size=min(n, len(rows)), replace=False)
+    xs, ys = grid.transform * (cols[pick] + 0.5, rows[pick] + 0.5)
+    return gpd.GeoDataFrame({"group": ["null"] * len(pick)}, geometry=gpd.points_from_xy(xs, ys),
+                            crs=grid.crs)
 
 
-def auc(pos: np.ndarray, neg: np.ndarray) -> float:
-    """P(a random positive outranks a random negative). 0.5 = no signal."""
-    if not len(pos) or not len(neg):
-        return float("nan")
-    # Rank-based Mann-Whitney statistic, ties counted as half.
-    allv = np.concatenate([pos, neg])
-    order = allv.argsort()
-    ranks = np.empty(len(allv), dtype="float64")
-    ranks[order] = np.arange(1, len(allv) + 1)
-    # Average ranks over ties.
-    _, inv, counts = np.unique(allv, return_inverse=True, return_counts=True)
-    mean_rank = np.zeros(len(counts))
-    np.add.at(mean_rank, inv, ranks)
-    mean_rank /= counts
-    ranks = mean_rank[inv]
-    r_pos = ranks[: len(pos)].sum()
-    return float((r_pos - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
+# -------------------------------------------------------------- evaluation
+class Surfaces:
+    """The habitat-only model, evaluated at arbitrary points."""
 
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.terrain, self.grid = Grid.read(cfg.interim("score_terrain.tif"))
+        self.rasters = {n: Grid.read(cfg.interim(f"{n}.tif"))[0]
+                        for n in ("elevation", "slope", "aspect")}
+        self.habitat = cfg.habitat_model
+        hab_path = cfg.interim(f"score_{self.habitat}.tif")
+        self.habitat_raster = Grid.read(hab_path)[0] if hab_path.exists() else None
+        if self.habitat_raster is not None:
+            self.mode = f"terrain + {self.habitat}"
+        elif self.habitat == "forest":
+            # VRI over the whole validation extent is ~317,000 stands; sampling
+            # it at the evaluated points is the same score for a fraction of
+            # the download. Stand age is VRI's own here - no cutblock override.
+            self.mode = "terrain + forest (VRI sampled at points)"
+        else:
+            self.mode = "terrain only"
 
-def percentile_of(values, reference) -> np.ndarray:
-    """Where each value sits in the reference distribution, as 0..1."""
-    ref = np.sort(reference)
-    return np.searchsorted(ref, values, side="left") / max(len(ref), 1)
+    @property
+    def eligible(self) -> np.ndarray:
+        return np.isfinite(self.rasters["elevation"])
 
+    def evaluate(self, pts: gpd.GeoDataFrame) -> pd.DataFrame:
+        """Per point: terrain sub-layers, habitat, combined score, and scored_all."""
+        proj = pts.to_crs(self.grid.crs)
+        inv = ~self.grid.transform
+        rc = np.array([inv * (g.x, g.y) for g in proj.geometry]).reshape(-1, 2)
+        r, c = np.floor(rc[:, 1]).astype(int), np.floor(rc[:, 0]).astype(int)
+        on = (r >= 0) & (r < self.grid.height) & (c >= 0) & (c < self.grid.width)
 
-def _component_auc(configs):
-    """AUC of each individual layer, target vs congener.
+        def take(arr):
+            out = np.full(len(pts), np.nan)
+            out[on] = arr[r[on], c[on]]
+            return out
 
-    Shows whether the discrimination comes from the elevation band alone or
-    whether slope, aspect and vegetation contribute anything on their own.
-    """
-    from foraging.curves import aspect_score, trapezoid
-
-    out = []
-    for conf in configs:
-        cfg = load_config(conf)
-        if not cfg.interim("elevation.tif").exists():
-            continue
-        elev, grid = Grid.read(cfg.interim("elevation.tif"))
-        slope = Grid.read(cfg.interim("slope.tif"))[0]
-        aspect = Grid.read(cfg.interim("aspect.tif"))[0]
-        t = cfg.species["terrain"]
-        layers = {
-            "elevation fit": trapezoid(elev, t["elevation_m"]["hard_min"], t["elevation_m"]["optimal_min"],
+        t = self.cfg.species["terrain"]
+        e, s, a = (take(self.rasters[k]) for k in ("elevation", "slope", "aspect"))
+        df = pd.DataFrame({
+            "elevation": e,
+            "elevation fit": trapezoid(e, t["elevation_m"]["hard_min"], t["elevation_m"]["optimal_min"],
                                        t["elevation_m"]["optimal_max"], t["elevation_m"]["hard_max"]),
-            "slope fit": trapezoid(slope, None, t["slope_deg"]["optimal_min"],
+            "slope fit": trapezoid(s, None, t["slope_deg"]["optimal_min"],
                                    t["slope_deg"]["optimal_max"], t["slope_deg"]["hard_max"]),
-            "aspect fit": aspect_score(aspect, slope, t["aspect"]["optimal_bearing_deg"],
+            "aspect fit": aspect_score(a, s, t["aspect"]["optimal_bearing_deg"],
                                        t["aspect"]["tolerance_deg"], t["aspect"]["flat_slope_deg"]),
-        }
-        veg_path = cfg.interim("score_vegetation.tif")
-        if veg_path.exists():
-            layers["vegetation fit"] = Grid.read(veg_path)[0]
+            "terrain": take(self.terrain),
+        }, index=pts.index)
 
-        obs = fetch_observations("Arnica", tuple(cfg.aoi.total_bounds), cfg.cache_dir,
-                                 quality_grade="research", months=None, log=lambda *a: None)
-        obs = obs[obs.geometry.within(cfg.aoi_geom)]
-        obs = obs[obs["accuracy_m"].notna() & (obs["accuracy_m"] <= MAX_ACCURACY_M)]
+        if self.habitat_raster is not None:
+            df[f"{self.habitat} fit"] = take(self.habitat_raster)
+        elif self.habitat == "forest":
+            df = df.join(self._forest_at(proj))
 
-        for name, arr in layers.items():
-            a = np.asarray(arr, dtype="float32")
-            cols, kept = sample_at({"v": a}, grid, obs, require="v")
-            taxa = obs.loc[kept, "taxon"].to_numpy()
-            pos = cols["v"][taxa == TARGET]
-            neg = cols["v"][taxa == CONGENER]
-            if len(pos) and len(neg):
-                out.append((name, auc(pos, neg)))
-    return out
+        hab_col = f"{self.habitat} fit"
+        if hab_col in df:
+            w = self.cfg.weights["weights"]
+            combined = weighted_mean({"terrain": df["terrain"].to_numpy(), "habitat": df[hab_col].to_numpy()},
+                                     {"terrain": w["terrain"], "habitat": w[self.habitat]})
+            # A cell rejected by either hard filter is not habitat at all.
+            ok = np.isfinite(df["terrain"]) & np.isfinite(df[hab_col])
+            df["score"] = np.where(ok, combined, np.nan)
+        else:
+            df["score"] = df["terrain"]
+        df["terrain_all"] = np.where(np.isfinite(e), np.nan_to_num(df["terrain"], nan=0.0), np.nan)
+        df["score_all"] = np.where(np.isfinite(e), np.nan_to_num(df["score"], nan=0.0), np.nan)
+        return df
 
-
-def main() -> int:
-    rows_target, rows_congener, rows_other, null_pool, elev_by_taxon = [], [], [], [], {}
-
-    model_desc = "?"
-    for conf in CONFIGS:
-        cfg = load_config(conf)
-        if not cfg.interim("score_terrain.tif").exists():
-            print(f"! {cfg.aoi_id}: no pipeline output, skipping")
-            continue
-
-        score, grid, model_desc = habitat_score(cfg)
-        elevation = Grid.read(cfg.interim("elevation.tif"))[0]
-        finite = np.isfinite(score)
-
-        # Validation records are fetched independently of the pipeline's own
-        # boost input: all months, so seasonality is not doing the work.
-        obs = fetch_observations(
-            "Arnica", tuple(cfg.aoi.total_bounds), cfg.cache_dir,
-            quality_grade="research", months=None, log=lambda *a: None,
+    def _forest_at(self, proj: gpd.GeoDataFrame) -> pd.DataFrame:
+        from foraging.sources.bcdata import sample_at_points
+        from foraging.stages.forest import (
+            VRI_PROPERTIES,
+            score_stands,
+            soft_factor,
+            stand_attributes,
         )
-        if len(obs):
-            obs = obs[obs.geometry.within(cfg.aoi_geom)]
-            before = len(obs)
-            obs = obs[obs["accuracy_m"].notna() & (obs["accuracy_m"] <= MAX_ACCURACY_M)]
-            print(f"  dropped {before - len(obs)} record(s) coarser than "
-                  f"{MAX_ACCURACY_M:g} m positional accuracy")
 
-        cols, kept = sample_at({"score": score, "elev": elevation}, grid, obs, require="score")
-        vals, elevs = cols["score"], cols["elev"]
-        taxa = obs.loc[kept, "taxon"].to_numpy()
+        fcfg = self.cfg.species["forest"]
+        stands = sample_at_points("vri", proj.geometry, self.cfg.cache_dir, VRI_PROPERTIES,
+                                  log=lambda *a: None)
+        at = stand_attributes(stands, fcfg)
+        enforce = self.cfg.weights["hard_filters"].get("enforce_treed", True)
+        return pd.DataFrame({
+            "host share %": at["host_pct"].to_numpy(),
+            "stand age fit": soft_factor(at["age"].to_numpy(), fcfg["stand_age_yr"]),
+            "crown closure fit": soft_factor(at["closure"].to_numpy(), fcfg["crown_closure_pct"]),
+            "forest fit": score_stands(at["host_pct"], at["age"], at["closure"], at["treed"],
+                                       fcfg, enforce_treed=enforce),
+        }, index=proj.index)
 
-        pool = score[finite]
-        null = RNG.choice(pool, size=min(N_NULL, len(pool)), replace=False)
-        null_pool.append(null)
 
-        pct = percentile_of(vals, pool)
-        for t, p, e in zip(taxa, pct, elevs, strict=True):
-            bucket = rows_target if t == TARGET else rows_congener if t == CONGENER else rows_other
-            bucket.append(p)
-            elev_by_taxon.setdefault(t, []).append(e)
+# ---------------------------------------------------------------- reporting
+def fmt_auc(pos, neg, rng, n_boot) -> str:
+    if len(pos) < 2 or len(neg) < 2:
+        return f"{'n/a':>24s}  n={len(pos)}"
+    lo, hi = bootstrap_auc(pos, neg, rng, n_boot=n_boot)
+    return (f"{auc(pos, neg):.2f} [{lo:.2f}-{hi:.2f}] p={mann_whitney_p(pos, neg):<6.2g}"
+            f" n={len(pos):<3d}")
 
-        print(f"{cfg.aoi_label}: {len(vals)} Arnica records on scored ground "
-              f"({int(finite.sum()):,} scored cells)")
 
-    component_auc = _component_auc(CONFIGS)
-    null = np.concatenate(null_pool) if null_pool else np.array([])
-    null_pct = percentile_of(null, null)
+def site_values(df: pd.DataFrame, col: str, xy: np.ndarray, distance_m: float) -> np.ndarray:
+    """One value per declustered site: the median of its records."""
+    v = df[col].to_numpy()
+    ok = np.isfinite(v)
+    if not ok.any():
+        return np.array([])
+    return per_cluster(v[ok], spatial_clusters(xy[ok], distance_m))
 
-    def summarise(name, arr):
-        a = np.asarray(arr, dtype="float64")
-        if not len(a):
-            print(f"  {name:28s}      n=0")
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--species", help="Species profile (default: the one in the validation config).")
+    ap.add_argument("--max-accuracy-m", type=float, default=MAX_ACCURACY_M)
+    ap.add_argument("--decluster-m", type=float, default=DECLUSTER_M)
+    ap.add_argument("--boot", type=int, default=N_BOOT)
+    args = ap.parse_args(argv)
+    rng = np.random.default_rng(SEED)
+
+    cfg = load_config(CONFIG, species=args.species)
+    vcfg = cfg.species.get("validation")
+    if not vcfg:
+        print(f"! {cfg.species_id} has no 'validation' block in its species profile")
+        return 1
+    if not cfg.interim("score_terrain.tif").exists():
+        stages = "terrain" + (",vegetation" if cfg.habitat_model == "vegetation" else "")
+        print(f"! no terrain layer for {cfg.run_id}. Build it with:\n"
+              f"  forage run -c {CONFIG} --only {stages}"
+              + (f" --species {args.species}" if args.species else ""))
+        return 1
+
+    target_name = ", ".join(vcfg["target_taxa"])
+    contrast_name = f"{', '.join(vcfg['contrast_taxa'])} ({vcfg.get('contrast_label', 'contrast')})"
+    print(f"{cfg.aoi_label} - {cfg.species.get('scientific_name')}")
+
+    surf = Surfaces(cfg)
+    obs = load_records(cfg, vcfg, args.max_accuracy_m)
+    n_null = N_NULL_RASTER if "sampled at points" not in surf.mode else N_NULL_POINTS
+    null = null_points(surf.grid, surf.eligible, n_null, rng)
+
+    rec = surf.evaluate(obs)
+    nul = surf.evaluate(null)
+    xy = np.array([[g.x, g.y] for g in obs.to_crs(surf.grid.crs).geometry]).reshape(-1, 2)
+    groups = {g: (obs["group"] == g).to_numpy() for g in ("target", "contrast")}
+
+    # ---- accounting ----------------------------------------------------
+    print(f"\n--- records on the {surf.mode} surface (no access, no records) ---")
+    for g, label in (("target", target_name), ("contrast", contrast_name)):
+        m = groups[g]
+        on = m & np.isfinite(rec["elevation"].to_numpy())
+        rejected = on & ~np.isfinite(rec["score"].to_numpy())
+        n_sites = len(np.unique(spatial_clusters(xy[on], args.decluster_m))) if on.any() else 0
+        print(f"  {label:46s} {int(on.sum()):3d} records at {n_sites:3d} sites; "
+              f"{int(rejected.sum())} rejected by the hard filters")
+    print(f"  {'random null':46s} {len(nul):,} cells")
+
+    null_admitted = nul["score"].dropna().to_numpy()
+
+    def pct_line(name, vals):
+        v = vals[np.isfinite(vals)]
+        if not len(v):
+            print(f"  {name:46s}   n=0")
             return
-        print(f"  {name:28s} n={len(a):3d}   median percentile {np.median(a):.2f}   "
-              f"mean {a.mean():.2f}   >=0.75: {(a >= 0.75).mean():.0%}")
+        p = midrank_percentile(v, null_admitted)
+        print(f"  {name:46s}   n={len(v):3d}   median percentile {np.median(p):.2f}   "
+              f"mean {p.mean():.2f}")
 
-    print(f"\n--- habitat-only score percentile ({model_desc}; no access, no records) ---")
-    summarise(f"{TARGET} (target)", rows_target)
-    summarise(f"{CONGENER} (forest congener)", rows_congener)
-    summarise("other Arnica", rows_other)
-    summarise("random null", null_pct)
+    print("\n--- habitat-score percentile among admitted null cells (ties count half) ---")
+    pct_line(f"{target_name} (target)", rec.loc[groups["target"], "score"].to_numpy())
+    pct_line(contrast_name, rec.loc[groups["contrast"], "score"].to_numpy())
 
-    print("\n--- discrimination (AUC, 0.5 = no signal) ---")
-    t = np.asarray(rows_target, dtype="float64")
-    c = np.asarray(rows_congener, dtype="float64")
-    print(f"  target vs random null        {auc(t, null_pct):.3f}   "
-          f"(does the model beat chance?)")
-    print(f"  target vs forest congener    {auc(t, c):.3f}   "
-          f"(habitat, or just where people walk?)")
+    # ---- discrimination ------------------------------------------------
+    print("\n--- discrimination: AUC [95% CI] one-sided p, n = target count "
+          "(0.5 = no signal) ---")
+    print(f"  {'':33s} {'per record':38s} per site ({args.decluster_m:g} m declustered)")
+    for col, how in (("score", "admitted only"), ("score_all", "rejected = 0")):
+        t = rec.loc[groups["target"], col].dropna().to_numpy()
+        c = rec.loc[groups["contrast"], col].dropna().to_numpy()
+        n = nul[col].dropna().to_numpy()
+        ts = site_values(rec[groups["target"]], col, xy[groups["target"]], args.decluster_m)
+        cs = site_values(rec[groups["contrast"]], col, xy[groups["contrast"]], args.decluster_m)
+        print(f"  target vs null      {how:13s} {fmt_auc(t, n, rng, args.boot):38s} "
+              f"{fmt_auc(ts, n, rng, args.boot)}")
+        print(f"  target vs contrast  {how:13s} {fmt_auc(t, c, rng, args.boot):38s} "
+              f"{fmt_auc(ts, cs, rng, args.boot)}")
 
-    if component_auc:
-        print("\n--- which layer carries the signal? (AUC target vs congener) ---")
-        for name, val in component_auc:
-            print(f"  {name:28s} {val:.3f}")
+    # ---- does the habitat layer add anything? --------------------------
+    if "score_all" in rec and surf.mode != "terrain only":
+        print("\n--- does the habitat layer add discrimination? paired, same records ---")
+        print("  AUC(terrain + habitat) - AUC(terrain alone), rejected cells = 0")
+        both = np.isfinite(rec["score_all"]) & np.isfinite(rec["terrain_all"])
+        nboth = np.isfinite(nul["score_all"]) & np.isfinite(nul["terrain_all"])
+        for name, neg_mask, neg_df in (("vs null", nboth, nul), ("vs contrast", None, None)):
+            pm = groups["target"] & both
+            if neg_df is None:
+                nm = groups["contrast"] & both
+                neg_a, neg_b = rec.loc[nm, "score_all"], rec.loc[nm, "terrain_all"]
+            else:
+                neg_a, neg_b = neg_df.loc[neg_mask, "score_all"], neg_df.loc[neg_mask, "terrain_all"]
+            if pm.sum() < 2 or len(neg_a) < 2:
+                print(f"  {name:12s} n/a")
+                continue
+            d, lo, hi, p_le0 = paired_bootstrap_delta(
+                rec.loc[pm, "score_all"].to_numpy(), neg_a.to_numpy(),
+                rec.loc[pm, "terrain_all"].to_numpy(), neg_b.to_numpy(), rng, n_boot=args.boot)
+            print(f"  {name:12s} {d:+.2f} [{lo:+.2f} to {hi:+.2f}]   "
+                  f"{p_le0:.0%} of bootstrap replicates <= 0")
+
+    # ---- which layer carries it? ---------------------------------------
+    layer_cols = [c for c in rec.columns if c.endswith(" fit") or c == "host share %"]
+    print("\n--- which layer carries the signal? AUC [95% CI], target vs contrast, per site ---")
+    for col in layer_cols:
+        ts = site_values(rec[groups["target"]], col, xy[groups["target"]], args.decluster_m)
+        cs = site_values(rec[groups["contrast"]], col, xy[groups["contrast"]], args.decluster_m)
+        ns = nul[col].dropna().to_numpy()
+        print(f"  {col:20s} vs contrast {fmt_auc(ts, cs, rng, args.boot):38s} "
+              f"vs null {auc(ts, ns):.2f}")
 
     print("\n--- elevation of records (m) ---")
-    for taxon, es in sorted(elev_by_taxon.items(), key=lambda kv: -len(kv[1])):
-        e = np.asarray(es)
-        print(f"  {taxon:28s} n={len(e):3d}   median {np.median(e):6.0f}   "
-              f"range {e.min():.0f}-{e.max():.0f}")
+    for g, label in (("target", target_name), ("contrast", contrast_name)):
+        e = rec.loc[groups[g], "elevation"].dropna().to_numpy()
+        if len(e):
+            print(f"  {label:46s} n={len(e):3d}   median {np.median(e):6.0f}   "
+                  f"range {e.min():.0f}-{e.max():.0f}")
+    e = nul["elevation"].dropna().to_numpy()
+    print(f"  {'random null':46s} n={len(e):,}   median {np.median(e):6.0f}")
 
-    print(f"\nSample: {len(t)} target and {len(c)} congener records passing the "
-          f"{MAX_ACCURACY_M:g} m accuracy filter. iNaturalist coverage is thin, so")
-    print("treat the exact figures as directional; the sign and rough size are the point.")
+    print("\nCIs are stratified percentile bootstraps; with fewer than ~15 sites per group")
+    print("they run narrow, so read them as the least uncertainty there is, not the most.")
+    print("Per-site rows are the honest sample size: neighbouring records are not")
+    print("independent evidence.")
     return 0
 
 

@@ -39,6 +39,10 @@ LAYERS = {
     "parcels": "WHSE_CADASTRE.PMBC_PARCEL_FABRIC_POLY_SVW",
     "woodlots": "WHSE_FOREST_TENURE.FTEN_MANAGED_LICENCE_POLY_SVW",
     "cutblocks": "WHSE_FOREST_VEGETATION.VEG_CONSOLIDATED_CUT_BLOCKS_SP",
+    # Vegetation Resources Inventory, rank-1 layer: one polygon per forest
+    # stand, with up to six tree species and their percentages, projected age
+    # and crown closure.
+    "vri": "WHSE_FOREST_VEGETATION.VEG_COMP_LYR_R1_POLY",
 }
 
 
@@ -82,16 +86,20 @@ def fetch_layer(
     log=print,
     retries: int = 4,
     cql_extra: str | None = None,
+    properties: list[str] | None = None,
 ) -> gpd.GeoDataFrame:
     """Fetch a WFS layer clipped to ``bbox_albers``, paging until exhausted.
 
     ``cql_extra`` is ANDed onto the bbox filter - used to pull only the parcels
     that actually matter (private tenure) instead of the entire cadastre.
+    ``properties`` limits the attributes returned; VRI carries ~180 columns per
+    stand and only a dozen are used, so without it the download is mostly
+    unused label geometry and audit fields.
     """
     layer = LAYERS.get(alias_or_name, alias_or_name)
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    suffix = _cache_key(layer + (cql_extra or ""), bbox_albers)
+    suffix = _cache_key(layer + (cql_extra or "") + ",".join(properties or []), bbox_albers)
     cache = cache_dir / f"{alias_or_name}_{suffix}.gpkg"
 
     if cache.exists():
@@ -100,8 +108,10 @@ def fetch_layer(
         return gdf
 
     geom_col = geometry_column(layer, log=log)
+    prop_param = ",".join([*properties, geom_col]) if properties else None
     frames: list[gpd.GeoDataFrame] = []
-    _fetch_tile(layer, geom_col, bbox_albers, cql_extra, frames, retries, log, depth=0)
+    _fetch_tile(layer, geom_col, bbox_albers, cql_extra, frames, retries, log, depth=0,
+                properties=prop_param)
 
     if not frames:
         gdf = gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs=ALBERS)
@@ -120,7 +130,8 @@ def fetch_layer(
     return gdf
 
 
-def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth) -> None:
+def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth,
+                properties=None) -> None:
     """Fetch one bbox, subdividing it if the server caps the result.
 
     The obvious approach - ``startIndex`` paging - is unsafe on this endpoint.
@@ -148,6 +159,8 @@ def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth) -
         "count": str(PAGE_SIZE),
         "CQL_FILTER": cql,
     }
+    if properties:
+        params["propertyName"] = properties
     page = gpd.read_file(io.BytesIO(_get_with_retry(params, retries=retries, log=log)))
 
     if len(page) < PAGE_SIZE or depth >= MAX_TILE_DEPTH:
@@ -161,7 +174,70 @@ def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth) -
     # Hit the cap - split into quadrants and recurse.
     mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
     for sub in ((x0, y0, mx, my), (mx, y0, x1, my), (x0, my, mx, y1), (mx, my, x1, y1)):
-        _fetch_tile(layer, geom_col, sub, cql_extra, frames, retries, log, depth + 1)
+        _fetch_tile(layer, geom_col, sub, cql_extra, frames, retries, log, depth + 1,
+                    properties=properties)
+
+
+def sample_at_points(
+    alias_or_name: str,
+    points: gpd.GeoSeries,
+    cache_dir: Path,
+    properties: list[str],
+    log=print,
+    batch: int = 150,
+    retries: int = 4,
+) -> pd.DataFrame:
+    """Attributes of the polygon under each point, one row per input point.
+
+    For layers too large to fetch wholesale over a wide extent - VRI over the
+    30,000 km2 validation extent is ~317,000 stands - when all that is needed
+    is the value at a few hundred locations. Points are sent as a MULTIPOINT in
+    one ``INTERSECTS`` filter per batch, then matched back locally. Rows for
+    points that land on no polygon are all-NaN. Results are cached by point set.
+    """
+    layer = LAYERS.get(alias_or_name, alias_or_name)
+    pts = points.to_crs(ALBERS)
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    key = hashlib.sha1(
+        (layer + ",".join(properties) + "|" +
+         ";".join(f"{p.x:.1f},{p.y:.1f}" for p in pts)).encode()
+    ).hexdigest()[:16]
+    cache = cache_dir / f"{alias_or_name}_points_{key}.csv"
+    if cache.exists():
+        return pd.read_csv(cache, index_col=0)
+
+    geom_col = geometry_column(layer, log=log)
+    frames = []
+    for start in range(0, len(pts), batch):
+        chunk = pts.iloc[start:start + batch]
+        wkt = "MULTIPOINT(" + ",".join(f"({p.x:.1f} {p.y:.1f})" for p in chunk) + ")"
+        params = {
+            "service": "WFS", "version": "2.0.0", "request": "GetFeature",
+            "typeNames": f"pub:{layer}", "outputFormat": "application/json",
+            "srsName": ALBERS, "count": str(PAGE_SIZE),
+            "propertyName": ",".join([*properties, geom_col]),
+            "CQL_FILTER": f"INTERSECTS({geom_col},{wkt})",
+        }
+        # POSTed: a MULTIPOINT of this size overflows GeoServer's URL limit (414).
+        page = gpd.read_file(io.BytesIO(_get_with_retry(params, retries=retries, log=log,
+                                                        post=True)))
+        if len(page):
+            frames.append(page.set_crs(ALBERS, allow_override=True))
+
+    pts_gdf = gpd.GeoDataFrame({"_pt": range(len(pts))}, geometry=pts.values, crs=ALBERS)
+    if frames:
+        polys = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=ALBERS)
+        joined = gpd.sjoin(pts_gdf, polys[[*properties, "geometry"]], how="left",
+                           predicate="intersects")
+        # A point exactly on a shared edge matches both stands; keep one.
+        joined = joined.drop_duplicates(subset="_pt").set_index("_pt").sort_index()
+        out = joined[properties]
+    else:
+        out = pd.DataFrame(index=range(len(pts)), columns=properties, dtype="float64")
+    out.index = points.index
+    out.to_csv(cache)
+    return out
 
 
 def _readable(text: str, limit: int = 200) -> str:
@@ -169,12 +245,17 @@ def _readable(text: str, limit: int = 200) -> str:
     return " ".join(re.sub(r"<[^>]+>", " ", text).split())[:limit]
 
 
-def _get_with_retry(params: dict, retries: int, log) -> bytes:
+def _get_with_retry(params: dict, retries: int, log, post: bool = False) -> bytes:
     delay = 2.0
     last = None
     for attempt in range(retries):
         try:
-            r = requests.get(WFS_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=300)
+            if post:
+                r = requests.post(WFS_URL, data=params, headers={"User-Agent": USER_AGENT},
+                                  timeout=300)
+            else:
+                r = requests.get(WFS_URL, params=params, headers={"User-Agent": USER_AGENT},
+                                 timeout=300)
             if r.status_code == 200:
                 return r.content
             last = f"HTTP {r.status_code}: {_readable(r.text)}"

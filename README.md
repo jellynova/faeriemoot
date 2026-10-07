@@ -4,10 +4,13 @@ Predicts and ranks likely wild-foraging sites by stacking terrain, vegetation,
 access and observation data into a per-site suitability score, then serving the
 ranked sites as clickable pins on an interactive map.
 
-The first target is mountain arnica (*Arnica latifolia*) in the West Kootenays,
-BC — Rossland / Castlegar / Salmo. Nothing about that region is hard-coded:
-the AOI, the target species and the scoring weights are all swappable config
-files.
+Two targets ship for the West Kootenays, BC (Rossland / Castlegar / Salmo):
+mountain arnica (*Arnica latifolia*), a subalpine meadow plant, and mountain
+chanterelle (*Cantharellus formosus*), a fungus that lives on Douglas-fir roots.
+They need different habitat models: arnica is found from satellite imagery
+of open ground, the chanterelle from BC's forest inventory of which trees grow
+where. Nothing about the region is hard-coded: the AOI, the target species and
+the scoring weights are all swappable config files.
 
 > **This tool describes land tenure, not permission.** A site's land-status
 > flag tells you what kind of ground it is, not whether you may harvest there.
@@ -20,7 +23,8 @@ files.
 
 ```bash
 uv venv && uv pip install -e .        # or: pip install -e .
-forage run                            # full pipeline, ~2 minutes
+forage run                            # arnica, full pipeline, ~2 minutes
+forage run --species config/species/cantharellus_formosus.json   # chanterelle, ~3 minutes
 python -m http.server -d web 8000     # then open http://localhost:8000
 ```
 
@@ -32,12 +36,14 @@ anonymous.
 ## What it does
 
 Each 30 m cell in the area of interest is scored by four layers, then
-high-scoring cells are clustered into discrete sites and ranked.
+high-scoring cells are clustered into discrete sites and ranked. The habitat
+layer is one of two, chosen by the species profile's `habitat_model`.
 
 | Layer | What it contributes | Source |
 |---|---|---|
-| **Terrain** | Elevation band, slope, aspect (south-to-southwest preferred) | Copernicus GLO-30 DEM via Planetary Computer |
-| **Vegetation** | Open meadow / open forest vs closed canopy or bare rock | Sentinel-2 L2A, seasonal composite |
+| **Terrain** | Elevation band, slope, aspect preference | Copernicus GLO-30 DEM via Planetary Computer |
+| **Habitat: vegetation** (meadow plants) | Open meadow / open forest vs closed canopy or bare rock | Sentinel-2 L2A, seasonal composite |
+| **Habitat: forest** (mycorrhizal fungi) | Host-tree share of the stand, stand age, crown closure | BC Vegetation Resources Inventory (VRI) |
 | **Access** | Drive minutes from your origin + least-cost hike from the road | BC Digital Road Atlas, forest tenure roads, OSM trails |
 | **Observations** | Proximity boost from real sightings | iNaturalist research-grade records |
 | **Land status** | Tenure flag — *flagged, never silently down-ranked* | BC parks, ParcelMap BC, forest tenure |
@@ -48,8 +54,11 @@ can judge the trade-off yourself.
 ### Pipeline stages
 
 ```
-terrain → vegetation → access → observations → landstatus → scoring → export
+terrain → vegetation | forest → access → observations → landstatus → scoring → export
 ```
+
+Whichever of `vegetation` / `forest` the species does not use is skipped, so a
+chanterelle run never downloads Sentinel-2 imagery.
 
 Any stage can be re-run on its own (`forage scoring`), reading what it needs
 from `data/interim/<aoi>/`. Retuning weights and rebuilding the map takes a few
@@ -70,7 +79,7 @@ Everything tunable lives in `config/`.
 | File | Controls |
 |---|---|
 | `config/pipeline.json` | AOI selection, grid resolution, **drive-time origin**, imagery window, site clustering |
-| `config/species/*.json` | Elevation band, slope/aspect preference, vegetation thresholds, iNaturalist taxon |
+| `config/species/*.json` | Habitat model, elevation band, slope/aspect preference, vegetation or forest thresholds, iNaturalist taxon, validation taxa, per-species weight overrides |
 | `config/weights.json` | Layer weights, hard filters, which land classes are excluded vs flagged |
 
 ### Setting your origin
@@ -91,9 +100,9 @@ forage run --aoi config/aoi/nelson.geojson
 ```
 
 The analysis grid picks its own UTM zone from the AOI, every layer is fetched
-for the new extent, and outputs land in a parallel `output/nelson/` and
-`web/data/nelson/`. The map UI reads `web/data/index.json` and offers a region
-switcher — no code changes. `config/aoi/nelson.geojson` ships as a worked
+for the new extent, and outputs land in a parallel `output/nelson/<species>/`
+and `web/data/nelson/<species>/`. The map UI reads `web/data/index.json` and
+offers a region-and-species switcher — no code changes. `config/aoi/nelson.geojson` ships as a worked
 second example (80 sites); `forage areas` lists what is available.
 
 The origin does **not** have to sit inside the AOI — the road fetch is extended
@@ -109,8 +118,23 @@ Copy a species profile and pass it the same way:
 forage run --species config/species/my_plant.json
 ```
 
-The vegetation thresholds are the part most worth re-tuning; see the modelling
-notes below for how the current ones were calibrated.
+Every run is keyed by AOI *and* species — `data/interim/<aoi>/<species>/`,
+`output/<aoi>/<species>/`, `web/data/<aoi>/<species>/` — so several targets on
+one region sit side by side. (Directories from the older per-AOI layout, e.g.
+`data/interim/west_kootenays/*.tif`, are no longer read and can be deleted.)
+
+Pick the habitat model first:
+
+* `"habitat_model": "vegetation"` — Sentinel-2 openness, for plants of meadow
+  and open forest. Copy `arnica_latifolia.json`. The vegetation thresholds are
+  the part most worth re-tuning; see the modelling notes below.
+* `"habitat_model": "forest"` — BC VRI stand composition, for anything that
+  depends on particular trees. Copy `cantharellus_formosus.json` and edit
+  `forest.hosts`, which gives each VRI tree species code a host credit.
+
+A profile can also carry `weights_override` (merged over `config/weights.json`
+for that species only) and a `validation` block naming the target and contrast
+taxa for `scripts/validate.py`.
 
 ---
 
@@ -168,6 +192,59 @@ go back indefinitely, so old cuts may still pass as meadow.
 **Hike cost is isotropic.** Tobler's hiking function is applied to terrain
 slope magnitude, not slope along the direction of travel — the standard GIS
 approximation. Expect hike times to be slightly conservative on traverses.
+
+### The chanterelle model
+
+**Why the arnica model does not transfer.** The vegetation stage rewards open
+canopy. A conifer-root fungus is absent from exactly that ground, and mid-summer
+Douglas-fir, larch, cedar and spruce are indistinguishable by NDVI anyway. What
+matters is *which trees* and *how old the stand is*. BC's Vegetation Resources
+Inventory records both for every stand in the province: up to six tree species
+with percentages, projected age and crown closure. It covers 100% of this AOI
+in 23,722 stands.
+
+**How a stand is scored.** `host_fit × age_fit × closure_fit`. Host fit comes
+from the stand's species percentages weighted by `forest.hosts` (Douglas-fir
+1.0, western hemlock 0.5), with full credit from 50%, i.e. a Douglas-fir-leading
+stand. It has no floor, because a mycorrhizal obligate has no habitat without
+its host. Stand age gives nothing to fresh cutblocks and full credit from 40
+years. Crown closure is a soft preference with a 0.4 floor. Stand age is
+cross-checked against the consolidated cutblock layer, and the younger of the
+two wins, because VRI depletions lag recent harvest. That override touched
+300,000 cells here. Weights are overridden for this species (host forest 0.45,
+terrain 0.15) because the host's own range already encodes most of what
+elevation would.
+
+**What the records say, and what they cannot.** Precise *Cantharellus* records
+across the 30,000 km² validation extent sit in Douglas-fir-leading stands 60% of
+the time (random ground 20%), at a median 666 m (random ground 1,545 m), and
+none sit in a stand younger than about 55 years. Those observations set the
+priors in the profile. But there are only **10** such records at **7** sites.
+13 of 25 are obscured, which is expected for a choice edible. That is far too
+few to calibrate against, and the formal validation below cannot tell the model
+from chance. Treat the thresholds as informed priors, not measurements.
+
+**This is a Douglas-fir chanterelle model, not a *formosus* model.**
+*C. formosus* is chiefly coastal. It has no research-grade records in this AOI
+and one in the whole validation extent. Kootenay chanterelle records are
+*C. subalbidus* (white chanterelle) and *C. roseocanus*, so the observation
+layer and the validation both work at genus level.
+
+**Genus queries return look-alikes.** iNaturalist resolves `taxon_name` through
+synonyms, so a `Cantharellus` query also returns the false chanterelle
+(*Hygrophoropsis aurantiaca*, once *Cantharellus aurantiacus*) and
+*Craterellus tubaeformis*. In this AOI that was 6 of 8 records. Records outside
+the queried genus are now dropped, along with obscured and imprecise ones
+(`max_accuracy_m`, `drop_obscured`), whose public coordinates are randomised
+across ~20 km.
+
+**The top of the ranking is a tie.** Every mature Douglas-fir-leading stand near
+a road saturates terrain, forest and access, so the top 1% of cells all score
+0.920. Nothing in ten records justifies finer grading within such stands, so
+the model does not pretend to have any. Ties are broken by the patch's mean
+score and then its area, i.e. by how much contiguous good ground surrounds the
+peak. Read the list as *a few hundred equally plausible stands, nearest
+first*, not as a ranking of quality.
 
 ---
 
@@ -274,26 +351,29 @@ run yet, or `index.html` was opened as a file. It has to be served over HTTP:
 ## Outputs
 
 ```
-output/<aoi>/
+output/<aoi>/<species>/
   sites.geojson         ranked sites with full attributes
   observations.geojson  iNaturalist records used
   suitability.tif       the score surface
   manifest.json         AOI/species/filter metadata for the UI
-web/data/<aoi>/         PNG overlays + GeoJSON + manifest, ready to serve
+web/data/<aoi>/<species>/   PNG overlays + GeoJSON + manifest, ready to serve
 ```
 
 Each ranked site carries: coordinates, score, per-layer score breakdown,
-elevation, slope, aspect (degrees and compass), NDVI, canopy closure,
-vegetation class, patch area, drive minutes, hike km and minutes, nearby
-iNaturalist counts, and land-status flag.
+elevation, slope, aspect (degrees and compass), habitat class, patch area,
+drive minutes, hike km and minutes, nearby iNaturalist counts, and land-status
+flag; plus NDVI and canopy closure for a vegetation-model species, or stand
+composition, host-tree share, stand age and VRI crown closure for a
+forest-model one.
 
 ---
 
 ## Map UI
 
 Leaflet, vendored locally so it works offline. Toggleable layers for
-suitability, elevation, slope, aspect, NDVI, vegetation class, years since
-logging, land tenure, roads, trails, protected areas and observations. Filters
+suitability, elevation, slope, aspect, NDVI and vegetation class (or, for a
+forest-model species, forest stand class, host-tree share and stand age), years
+since logging, land tenure, roads, trails, protected areas and observations. Filters
 for minimum score, max drive time, max hike distance, elevation band, hiding
 flagged land and hiding recently logged ground. Vector layers are fetched only
 when switched on, since roads alone is several MB.

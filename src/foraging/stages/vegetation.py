@@ -140,6 +140,10 @@ def logging_age(cfg: Config, grid: Grid, log=print) -> np.ndarray:
 
 
 def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = False) -> dict:
+    if cfg.habitat_model != "vegetation":
+        log(f"[vegetation] not used by {cfg.species_id} (habitat_model "
+            f"'{cfg.habitat_model}') - skipping the Sentinel-2 download")
+        return {"skipped": True}
     if grid is None:
         _, grid = Grid.read(cfg.interim("elevation.tif"))
 

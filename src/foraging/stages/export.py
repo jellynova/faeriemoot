@@ -5,8 +5,9 @@ can use: PNG overlays reprojected to WGS84 (Leaflet's ``imageOverlay`` treats
 an image as equirectangular, so a UTM PNG would sit visibly askew), simplified
 GeoJSON for the vector toggles, and a manifest the UI configures itself from.
 
-Everything lands in ``web/data/<aoi_id>/``, so dropping in a new AOI produces a
-parallel directory and the UI picks it up without code changes.
+Everything lands in ``web/data/<aoi_id>/<species_id>/``, so dropping in a new
+AOI or species produces a parallel directory and the UI picks it up without
+code changes.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ RAMPS = {
                   (0.8, 160, 130, 110), (1.0, 250, 250, 252)],
     "slope": [(0.0, 255, 255, 204), (0.4, 253, 176, 74), (0.7, 227, 90, 60), (1.0, 128, 0, 38)],
     "ndvi": [(0.0, 140, 100, 60), (0.4, 220, 210, 140), (0.7, 90, 170, 70), (1.0, 10, 80, 30)],
+    "host": [(0.0, 60, 60, 70), (0.4, 120, 140, 90), (0.7, 200, 175, 70), (1.0, 250, 215, 60)],
 }
 
 # Cyclic ramp so north wraps cleanly; used for aspect.
@@ -46,6 +48,14 @@ VEG_COLOURS = {
     3: (60, 140, 80),     # open forest
     4: (25, 70, 45),      # closed forest
     5: (198, 122, 62),    # regenerating cutblock
+}
+
+FOREST_COLOURS = {
+    1: (190, 180, 150),   # non-forest
+    2: (198, 122, 62),    # young / regenerating stand
+    3: (95, 120, 110),    # forest without host trees
+    4: (110, 170, 90),    # mixed stand with host trees
+    5: (225, 190, 60),    # host-leading stand
 }
 
 TENURE_COLOURS = {
@@ -129,10 +139,9 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     if grid is None:
         _, grid = Grid.read(cfg.interim("elevation.tif"))
 
-    web_dir = cfg.root / "web" / "data" / cfg.aoi_id
-    web_dir.mkdir(parents=True, exist_ok=True)
+    web_dir = cfg.web_dir
     bounds = tuple(float(b) for b in cfg.aoi.total_bounds)
-    log(f"[export] writing web assets to web/data/{cfg.aoi_id}/")
+    log(f"[export] writing web assets to web/data/{cfg.run_id}/")
 
     layers: dict[str, dict] = {}
 
@@ -164,6 +173,17 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
         layers["vegetation"] = {"label": "Vegetation class", "file": "vegetation.png",
                                 "type": "categorical"}
         log("    vegetation.png")
+
+    fclass = _safe_read(cfg, "forest_class")
+    if fclass is not None:
+        _categorical_overlay(web_dir / "forest_class.png", fclass, grid, bounds, FOREST_COLOURS)
+        layers["forest_class"] = {"label": "Forest stand class (VRI)", "file": "forest_class.png",
+                                  "type": "categorical"}
+        log("    forest_class.png")
+    add_continuous("host_pct", "host_pct", RAMPS["host"], "Host-tree share (VRI)",
+                   vmin=0.0, vmax=100.0)
+    add_continuous("stand_age", "stand_age", RAMPS["ndvi"], "Stand age (VRI)",
+                   vmin=0.0, vmax=200.0)
 
     logging_age = _safe_read(cfg, "logging_age")
     if logging_age is not None and np.isfinite(logging_age).any():
@@ -255,19 +275,22 @@ def _export_vectors(cfg: Config, web_dir, log=print) -> None:
 
 
 def _write_index(cfg: Config, log=print) -> None:
-    """List every built AOI so the UI can offer a region switcher."""
+    """List every built AOI x species run so the UI can offer a switcher.
+
+    Only ``<aoi>/<species>/manifest.json`` is listed; a manifest one level up is
+    a leftover from the older per-AOI layout and is ignored.
+    """
     data_root = cfg.root / "web" / "data"
     entries = []
-    for d in sorted(p for p in data_root.iterdir() if p.is_dir()):
-        mf = d / "manifest.json"
-        if not mf.exists():
-            continue
+    for mf in sorted(data_root.glob("*/*/manifest.json")):
         m = json.loads(mf.read_text())
+        sp = m.get("species", {})
         entries.append({
-            "id": d.name,
-            "label": m.get("aoi", {}).get("label", d.name),
-            "species": m.get("species", {}).get("scientific_name"),
+            "id": mf.parent.relative_to(data_root).as_posix(),
+            "label": m.get("aoi", {}).get("label", mf.parent.parent.name),
+            "species": sp.get("scientific_name"),
+            "common_name": sp.get("common_name"),
             "sites": m.get("counts", {}).get("sites", 0),
         })
     (data_root / "index.json").write_text(json.dumps({"areas": entries}, indent=2))
-    log(f"    index.json ({len(entries)} area(s))")
+    log(f"    index.json ({len(entries)} run(s))")

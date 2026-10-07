@@ -76,19 +76,40 @@ class Config:
         return p
 
     @property
+    def run_id(self) -> str:
+        """``<aoi>/<species>`` - the unit every interim, output and web path is keyed by.
+
+        Keying by AOI alone let a second species on the same region overwrite
+        the first one's map, and worse, leave its species-specific score layers
+        behind for the next run's scoring stage to pick up.
+        """
+        return f"{self.aoi_id}/{self.species_id}"
+
+    @property
+    def habitat_model(self) -> str:
+        """Which stage supplies the habitat signal: ``vegetation`` or ``forest``."""
+        return str(self.species.get("habitat_model", "vegetation"))
+
+    @property
     def cache_dir(self) -> Path:
         return self._dir("cache")
 
     @property
     def interim_dir(self) -> Path:
-        """Per-AOI so two regions can be built side by side without clobbering."""
-        p = self._dir("interim") / self.aoi_id
+        """Per AOI and species, so runs can be built side by side without clobbering."""
+        p = self._dir("interim") / self.run_id
         p.mkdir(parents=True, exist_ok=True)
         return p
 
     @property
     def output_dir(self) -> Path:
-        p = self._dir("output") / self.aoi_id
+        p = self._dir("output") / self.run_id
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @property
+    def web_dir(self) -> Path:
+        p = self.root / "web" / "data" / self.run_id
         p.mkdir(parents=True, exist_ok=True)
         return p
 
@@ -120,7 +141,8 @@ def load_config(
         pipeline["species"] = str(species)
 
     species = load_json(root / pipeline["species"])
-    weights = load_json(root / pipeline["weights"])
+    weights = apply_weights_override(load_json(root / pipeline["weights"]),
+                                     species.get("weights_override"))
     aoi_path = root / pipeline["aoi"]
     aoi = gpd.read_file(aoi_path)
     if aoi.crs is None:
@@ -128,6 +150,25 @@ def load_config(
     aoi = aoi.to_crs("EPSG:4326")
 
     return Config(root=root, pipeline=pipeline, species=species, weights=weights, aoi=aoi, aoi_path=aoi_path)
+
+
+def apply_weights_override(weights: dict, override: dict | None) -> dict:
+    """Merge a species profile's ``weights_override`` over ``weights.json``.
+
+    One level deep: ``{"weights": {"terrain": 0.15}}`` changes the terrain
+    weight and leaves the other layer weights as they are. A host-tree species
+    leans on its forest layer far more than a meadow plant leans on NDVI, and
+    that is a property of the species, not of the region.
+    """
+    if not override:
+        return weights
+    merged = {k: (dict(v) if isinstance(v, dict) else v) for k, v in weights.items()}
+    for section, values in override.items():
+        if isinstance(values, dict) and isinstance(merged.get(section), dict):
+            merged[section].update(values)
+        else:
+            merged[section] = values
+    return merged
 
 
 def _find_root(pipeline_path: Path) -> Path:

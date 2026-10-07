@@ -1,0 +1,98 @@
+{
+  "$comment": "Target profile for a mycorrhizal fungus. Habitat comes from BC's forest inventory (VRI) - which trees, how old - instead of Sentinel-2 openness, because the arnica vegetation model selects open meadow, which is exactly where a conifer-root fungus is absent.",
+  "id": "cantharellus_formosus",
+  "common_name": "Mountain chanterelle",
+  "scientific_name": "Cantharellus formosus",
+  "habitat_note": "Ectomycorrhizal with conifers, primarily Douglas-fir (western hemlock secondarily). Fruits late summer to fall in established second-growth and older stands; clearcuts and young plantations produce little. Also called the Pacific golden chanterelle. C. formosus is chiefly a coastal species: in the Kootenays nearly all iNaturalist chanterelle records are C. subalbidus or C. roseocanus, so treat this as a Douglas-fir chanterelle model rather than a formosus-specific one.",
+  "habitat_model": "forest",
+  "season": {
+    "$comment": "Shown in the map UI. Kootenay Cantharellus records are 90% August-November, peaking in October.",
+    "fruiting_months": [8, 9, 10, 11],
+    "label": "Fruits August to November, peaking in October"
+  },
+  "weights_override": {
+    "$comment": "Merged over config/weights.json for this species only. Host forest is the primary habitat signal; terrain is secondary because the host trees' own range already encodes most of what elevation would.",
+    "weights": {
+      "terrain": 0.15,
+      "forest": 0.45
+    },
+    "terrain_subweights": {
+      "elevation": 0.5,
+      "slope": 0.35,
+      "aspect": 0.15
+    }
+  },
+  "observations": {
+    "taxon_name": "Cantharellus formosus",
+    "genus_fallback": "Cantharellus",
+    "$comment": "There are no research-grade C. formosus records in the West Kootenays AOI and one in the whole 30,000 km2 validation extent, so the genus carries this layer. The genus query also returns the false chanterelle (Hygrophoropsis aurantiaca) through an old synonym; the observation stage drops anything outside the queried genus.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 1500,
+    "months": [8, 9, 10, 11],
+    "no_observation_baseline": 0.6,
+    "$comment_baseline": "Higher than arnica's 0.5: chanterelle patches are deliberately kept quiet, so absence of a record says even less here.",
+    "max_accuracy_m": 1000,
+    "drop_obscured": true,
+    "$comment_accuracy": "13 of 25 Kootenay Cantharellus records are obscured - their public coordinates are randomised across a ~20 km cell - which is to be expected for a choice edible. A boost centred on a randomised point is noise, so obscured and imprecise records are dropped."
+  },
+  "terrain": {
+    "$comment": "Deliberately broad. Kootenay Cantharellus records sit at a median 666 m (10th-90th percentile 507-1814 m; the high ones are in ESSF spruce-fir) against a 1545 m median for random ground. Douglas-fir thins out above ~1500 m here, and the host layer already penalises that.",
+    "elevation_m": {
+      "hard_min": 300,
+      "optimal_min": 450,
+      "optimal_max": 1400,
+      "hard_max": 1900
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 30,
+      "hard_max": 40
+    },
+    "aspect": {
+      "$comment": "A weak prior, not a measured preference: fall fruiting needs soil moisture, and in the dry interior ICH the cooler north-to-east slopes hold it longer. Weighted low (terrain_subweights.aspect) because ten precise records cannot test it.",
+      "optimal_bearing_deg": 45.0,
+      "tolerance_deg": 90.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "forest": {
+    "$comment": "Scored per VRI stand as host_fit x age_fit x closure_fit. Every factor is a trapezoid: credit rises from hard_min to optimal_min, holds to optimal_max, falls to hard_max. floor lifts the bottom of a soft factor; missing_credit applies where VRI has no value.",
+    "hosts": {
+      "$comment": "Credit per VRI species code; species percentages are weighted by these and summed. FDI is interior Douglas-fir - the code that dominates here.",
+      "FD": 1.0,
+      "FDI": 1.0,
+      "FDC": 1.0,
+      "HW": 0.5
+    },
+    "host_share_pct": {
+      "$comment": "Host-weighted share of the stand. Full credit from 50%, i.e. a Douglas-fir-leading stand. No floor: no host, no chanterelle. Precise Kootenay Cantharellus records sit in stands with a median 45% Douglas-fir, against 0% for random ground.",
+      "hard_min": 0,
+      "optimal_min": 50
+    },
+    "stand_age_yr": {
+      "$comment": "No precise record sits in a stand younger than ~55 years. The cutblock layer overrides VRI age where it records a more recent harvest.",
+      "hard_min": 15,
+      "optimal_min": 40,
+      "optimal_max": 1000,
+      "floor": 0.0,
+      "missing_credit": 0.5
+    },
+    "crown_closure_pct": {
+      "$comment": "Soft preference for a closed canopy (records median 60%, random ground 40%); open stands keep 40% credit.",
+      "hard_min": 10,
+      "optimal_min": 40,
+      "optimal_max": 100,
+      "floor": 0.4,
+      "missing_credit": 0.6
+    }
+  },
+  "validation": {
+    "$comment": "Used by scripts/validate.py. One precise C. formosus record exists, so the target group is the genus. The contrast is the false chanterelle: a wood-rotting saprotroph with no host-tree dependence, picked by the same people, in the same forests, in the same season - so it shares the sampling bias but not the mycorrhizal habitat.",
+    "query_taxa": ["Cantharellus", "Hygrophoropsis aurantiaca"],
+    "target_taxa": ["Cantharellus"],
+    "contrast_taxa": ["Hygrophoropsis aurantiaca"],
+    "contrast_label": "false chanterelle"
+  },
+  "imagery_window_override": null
+}
