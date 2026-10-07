@@ -1,0 +1,115 @@
+{
+  "$comment": "Target profile for a mycorrhizal mushroom. Unlike arnica, the target has no spectral signature of its own: it fruits where its ectomycorrhizal host trees are. habitat_model 'host_trees' swaps the Sentinel-2 vegetation stage for the forest stage, which scores tree species composition from BC's Vegetation Resources Inventory. Every number below is an expert prior, not a fit - there are no usable occurrence records to fit against (see README, Validation).",
+  "id": "cantharellus_formosus",
+  "common_name": "Pacific golden chanterelle",
+  "scientific_name": "Cantharellus formosus",
+  "habitat_model": "host_trees",
+  "habitat_note": "Ectomycorrhizal with conifers, primarily Douglas-fir, also western hemlock. Fruits late summer through fall in second-growth and older stands with closed-to-moderate canopy. Scored on host-tree share, stand age and crown closure from the BC forest inventory rather than on reflectance. Note: C. formosus is mainly a coastal / Cascades species; in the interior, golden chanterelles are also C. roseocanus (with spruce and pine), and field ID matters.",
+  "weights_override": {
+    "$comment": "The habitat component is 'forest', not 'vegetation'. Host composition is the primary signal so it carries the most weight; terrain is a weak supporting layer for a forest fungus.",
+    "weights": {
+      "terrain": 0.20,
+      "forest": 0.45,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "$comment": "Aspect is weighted zero: there is no evidence base here for an aspect preference independent of which trees grow there, and the host layer already captures that. The aspect block below is a placeholder the terrain stage requires.",
+      "elevation": 0.6,
+      "slope": 0.4,
+      "aspect": 0.0
+    }
+  },
+  "observations": {
+    "taxon_name": "Cantharellus formosus",
+    "genus_fallback": "Cantharellus",
+    "$comment": "As of 2026 the Kootenays have 1 research-grade C. formosus record, and it is obscured; every golden-chanterelle record in the 30,000 km2 validation extent is. Foragers hide their spots. Obscured records are dropped (their public point is randomised ~20 km), so in practice this layer is a flat baseline and the weights reflect that. C. roseocanus is down-weighted because in the interior it follows spruce and pine rather than Douglas-fir.",
+    "congeners_downweight": [
+      "Cantharellus roseocanus"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 800,
+    "months": [
+      8,
+      9,
+      10,
+      11
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Valley-bottom to mid-slope ICH. The lower bound is below the AOI's valley floor (~420 m at Trail), so only the upper side bites. The upper ramp eases out through the ESSF transition; host composition does most of the elevation work by itself, so this band is deliberately wide rather than double-penalising high ground.",
+      "hard_min": 300,
+      "optimal_min": 450,
+      "optimal_max": 1400,
+      "hard_max": 1900
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 30,
+      "hard_max": 40
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "forest": {
+    "host_affinity": {
+      "$comment": "Relative host quality by VRI species code, matched by longest prefix (FDI -> FD, PLI -> PL). Douglas-fir is the primary host and western hemlock the secondary one (Pilz et al. 2003, USDA PNW-GTR-576). Western redcedar and yew form arbuscular, not ectomycorrhizal, associations and cannot host at all. Hardwoods are left at zero: C. formosus is a conifer associate. Pine, true firs and spruce are low-to-moderate guesses, not measurements.",
+      "FD": 1.0,
+      "HW": 0.8,
+      "BG": 0.5,
+      "PL": 0.3,
+      "PW": 0.3,
+      "HM": 0.3,
+      "PY": 0.2,
+      "SS": 0.5,
+      "SE": 0.2,
+      "SX": 0.2,
+      "S": 0.2,
+      "BL": 0.1,
+      "BA": 0.3,
+      "B": 0.1,
+      "LW": 0.1,
+      "CW": 0.0,
+      "TW": 0.0
+    },
+    "default_affinity": 0.0,
+    "host_fraction": {
+      "$comment": "Affinity-weighted host share of the stand. Below hard_min the cell is not habitat (no host roots, no fungus). Credit rises linearly to full at saturation: a stand that is half Douglas-fir has host roots throughout and is treated as no worse than a pure one.",
+      "hard_min": 0.15,
+      "saturation": 0.5
+    },
+    "stand_age_credit": {
+      "$comment_knots": "Piecewise-linear [age_years, credit] knots. Nothing in fresh regeneration (harvest removes the host), fruiting from roughly the second decade, full credit through second growth, easing in old growth, where production is reported lower but not absent.",
+      "knots": [
+        [0, 0.0],
+        [15, 0.0],
+        [40, 1.0],
+        [150, 1.0],
+        [300, 0.7]
+      ]
+    },
+    "crown_closure_pct": {
+      "$comment": "VRI crown closure, percent. Sparse stands have sparse host roots; closed canopy is fine for a shade-tolerant forest fungus.",
+      "hard_min": 10,
+      "optimal_min": 40,
+      "optimal_max": 100,
+      "hard_max": null
+    },
+    "missing_attribute_credit": 0.5
+  },
+  "validation": {
+    "$comment": "Read by scripts/validate.py. The contrast is false chanterelle, a saprotroph on conifer litter: same pickers, same season, same forests, but no host requirement. Beating it would mean the model tracks hosts, not 'conifer forest where people pick mushrooms'.",
+    "target": "Cantharellus formosus",
+    "contrast": "Hygrophoropsis aurantiaca",
+    "contrast_label": "non-mycorrhizal look-alike",
+    "query_taxa": ["Cantharellus", "Hygrophoropsis aurantiaca"],
+    "config": "config/pipeline.validation.json"
+  },
+  "imagery_window_override": null
+}

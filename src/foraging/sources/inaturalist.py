@@ -8,6 +8,7 @@ about one request per second.
 from __future__ import annotations
 
 import hashlib
+import json
 import time
 from pathlib import Path
 
@@ -15,8 +16,54 @@ import geopandas as gpd
 import requests
 
 API = "https://api.inaturalist.org/v1/observations"
+TAXA_API = "https://api.inaturalist.org/v1/taxa"
 USER_AGENT = "foraging-suitability-mapper/0.1 (+https://github.com/jellynova/faeriemoot)"
 PER_PAGE = 200
+
+
+def pick_taxon(results: list[dict], name: str) -> dict | None:
+    """The active taxon whose scientific name is exactly ``name``.
+
+    Several ranks can share a name (genus *Cantharellus* and subgenus
+    *Cantharellus*); the one with the most observations is the one people
+    mean, and for a genus it is the genus.
+    """
+    want = name.strip().lower()
+    exact = [r for r in results
+             if str(r.get("name", "")).lower() == want and r.get("is_active", True)]
+    if not exact:
+        return None
+    return max(exact, key=lambda r: r.get("observations_count") or 0)
+
+
+def resolve_taxon_id(name: str, cache_dir: Path, log=print) -> int:
+    """Map a scientific name to an iNaturalist taxon ID.
+
+    The observations endpoint's ``taxon_name`` parameter also matches
+    *common* names, so querying it is not a taxonomic filter. "Cantharellus"
+    returns false chanterelle (*Hygrophoropsis*, a different order) and
+    *Hygrocybe cantharellus*; "Arnica" returns *Erigeron divergens*. Querying
+    by ID returns the taxon and its descendants and nothing else.
+    """
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache = cache_dir / "inat_taxon_ids.json"
+    known = json.loads(cache.read_text()) if cache.exists() else {}
+    if name in known:
+        return int(known[name])
+
+    r = requests.get(TAXA_API, params={"q": name, "per_page": 30},
+                     headers={"User-Agent": USER_AGENT}, timeout=60)
+    r.raise_for_status()
+    results = r.json().get("results", [])
+    hit = pick_taxon(results, name)
+    if hit is None:
+        near = ", ".join(str(x.get("name")) for x in results[:5]) or "nothing"
+        raise ValueError(f"iNaturalist has no taxon named exactly {name!r} (closest: {near})")
+    known[name] = int(hit["id"])
+    cache.write_text(json.dumps(known, indent=2, sort_keys=True))
+    log(f"    {name}: iNaturalist taxon {hit['id']} ({hit.get('rank')})")
+    return int(hit["id"])
 
 
 def fetch_observations(
@@ -31,12 +78,14 @@ def fetch_observations(
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     safe = taxon_name.replace(" ", "_").lower()
+    taxon_id = resolve_taxon_id(taxon_name, cache_dir, log=log)
     # Every query parameter has to be in the key. Keying on taxon alone meant a
     # second region silently reused the first region's records and then filtered
     # them all out as being outside its own AOI, reporting zero observations for
-    # an area that genuinely has some.
+    # an area that genuinely has some. The taxon ID is in it too, so caches made
+    # by the old name-matched query are not reused.
     key = hashlib.sha1(
-        f"{bbox_wgs84}|{quality_grade}|{sorted(months) if months else None}".encode()
+        f"{taxon_id}|{bbox_wgs84}|{quality_grade}|{sorted(months) if months else None}".encode()
     ).hexdigest()[:12]
     cache = cache_dir / f"inat_{safe}_{key}.gpkg"
     if cache.exists():
@@ -49,7 +98,7 @@ def fetch_observations(
     page = 1
     while True:
         params = {
-            "taxon_name": taxon_name,
+            "taxon_id": taxon_id,
             "quality_grade": quality_grade,
             "geo": "true",
             "swlat": s, "swlng": w, "nelat": n, "nelng": e,

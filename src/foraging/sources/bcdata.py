@@ -39,7 +39,14 @@ LAYERS = {
     "parcels": "WHSE_CADASTRE.PMBC_PARCEL_FABRIC_POLY_SVW",
     "woodlots": "WHSE_FOREST_TENURE.FTEN_MANAGED_LICENCE_POLY_SVW",
     "cutblocks": "WHSE_FOREST_VEGETATION.VEG_CONSOLIDATED_CUT_BLOCKS_SP",
+    # Vegetation Resources Inventory, rank-1 layer: one polygon per stand with
+    # up to six tree species and their percentages, stand age and crown closure.
+    "vri": "WHSE_FOREST_VEGETATION.VEG_COMP_LYR_R1_POLY",
 }
+
+# Unique feature keys, in order of preference, for de-duplicating features that
+# arrive in more than one tile. VRI has no OBJECTID.
+ID_COLUMNS = ("OBJECTID", "FEATURE_ID")
 
 
 def _cache_key(layer: str, bbox: tuple[float, float, float, float]) -> str:
@@ -82,16 +89,22 @@ def fetch_layer(
     log=print,
     retries: int = 4,
     cql_extra: str | None = None,
+    properties: list[str] | None = None,
 ) -> gpd.GeoDataFrame:
     """Fetch a WFS layer clipped to ``bbox_albers``, paging until exhausted.
 
     ``cql_extra`` is ANDed onto the bbox filter - used to pull only the parcels
     that actually matter (private tenure) instead of the entire cadastre.
+
+    ``properties`` limits the attributes returned. The geometry column is
+    always added. VRI carries ~200 attributes per polygon, of which the forest
+    stage needs about twenty.
     """
     layer = LAYERS.get(alias_or_name, alias_or_name)
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    suffix = _cache_key(layer + (cql_extra or ""), bbox_albers)
+    props_key = ",".join(sorted(properties)) if properties else ""
+    suffix = _cache_key(layer + (cql_extra or "") + props_key, bbox_albers)
     cache = cache_dir / f"{alias_or_name}_{suffix}.gpkg"
 
     if cache.exists():
@@ -100,8 +113,12 @@ def fetch_layer(
         return gdf
 
     geom_col = geometry_column(layer, log=log)
+    prop_names = None
+    if properties:
+        prop_names = ",".join(dict.fromkeys([*properties, geom_col]))
     frames: list[gpd.GeoDataFrame] = []
-    _fetch_tile(layer, geom_col, bbox_albers, cql_extra, frames, retries, log, depth=0)
+    _fetch_tile(layer, geom_col, bbox_albers, cql_extra, frames, retries, log, depth=0,
+                prop_names=prop_names)
 
     if not frames:
         gdf = gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs=ALBERS)
@@ -109,8 +126,9 @@ def fetch_layer(
         gdf = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=frames[0].crs)
         # Tiles overlap on their shared edges, so the same feature can arrive
         # more than once.
-        if "OBJECTID" in gdf.columns:
-            gdf = gdf.drop_duplicates(subset="OBJECTID").reset_index(drop=True)
+        id_col = next((c for c in ID_COLUMNS if c in gdf.columns), None)
+        if id_col:
+            gdf = gdf.drop_duplicates(subset=id_col).reset_index(drop=True)
 
     log(f"    {alias_or_name}: {len(gdf):,} features")
     if len(gdf):
@@ -120,7 +138,8 @@ def fetch_layer(
     return gdf
 
 
-def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth) -> None:
+def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth,
+                prop_names=None) -> None:
     """Fetch one bbox, subdividing it if the server caps the result.
 
     The obvious approach - ``startIndex`` paging - is unsafe on this endpoint.
@@ -148,6 +167,8 @@ def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth) -
         "count": str(PAGE_SIZE),
         "CQL_FILTER": cql,
     }
+    if prop_names:
+        params["propertyName"] = prop_names
     page = gpd.read_file(io.BytesIO(_get_with_retry(params, retries=retries, log=log)))
 
     if len(page) < PAGE_SIZE or depth >= MAX_TILE_DEPTH:
@@ -161,7 +182,8 @@ def _fetch_tile(layer, geom_col, bbox, cql_extra, frames, retries, log, depth) -
     # Hit the cap - split into quadrants and recurse.
     mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
     for sub in ((x0, y0, mx, my), (mx, y0, x1, my), (x0, my, mx, y1), (mx, my, x1, y1)):
-        _fetch_tile(layer, geom_col, sub, cql_extra, frames, retries, log, depth + 1)
+        _fetch_tile(layer, geom_col, sub, cql_extra, frames, retries, log, depth + 1,
+                    prop_names=prop_names)
 
 
 def _readable(text: str, limit: int = 200) -> str:

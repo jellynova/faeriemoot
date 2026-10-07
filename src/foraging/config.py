@@ -31,6 +31,37 @@ def load_json(path: Path) -> dict:
         return _strip_comments(json.load(fh))
 
 
+# Which stage supplies the habitat component, by species ``habitat_model``.
+# "spectral" reads the target's own signature off Sentinel-2 (right for a
+# meadow plant); "host_trees" scores mycorrhizal host composition from the
+# forest inventory (right for a fungus, whose own signature is invisible).
+HABITAT_LAYERS = {"spectral": "vegetation", "host_trees": "forest"}
+
+# Only these weights sections may be overridden per species. Access and land
+# status are computed once per AOI and shared between species, so letting a
+# profile change access_subweights or legality would silently disagree with
+# the shared layers.
+OVERRIDABLE_WEIGHTS = ("weights", "terrain_subweights")
+
+
+def _apply_weights_override(weights: dict, override: dict | None, species_id: str) -> dict:
+    if not override:
+        return weights
+    bad = set(override) - set(OVERRIDABLE_WEIGHTS)
+    if bad:
+        raise ValueError(
+            f"species {species_id}: weights_override may only set "
+            f"{', '.join(OVERRIDABLE_WEIGHTS)}, not {', '.join(sorted(bad))}"
+        )
+    out = dict(weights)
+    for key, sub in override.items():
+        # Replace the section wholesale: a partial merge would leave stale
+        # component weights in place (e.g. a "vegetation" weight on a species
+        # that has no vegetation layer).
+        out[key] = dict(sub)
+    return out
+
+
 @dataclass
 class Config:
     """Resolved pipeline configuration."""
@@ -62,6 +93,23 @@ class Config:
         return self.species["id"]
 
     @property
+    def habitat_model(self) -> str:
+        model = self.species.get("habitat_model", "spectral")
+        if model not in HABITAT_LAYERS:
+            raise ValueError(f"unknown habitat_model {model!r}; expected one of {', '.join(HABITAT_LAYERS)}")
+        return model
+
+    @property
+    def habitat_layer(self) -> str:
+        """Score component that carries the habitat signal: 'vegetation' or 'forest'."""
+        return HABITAT_LAYERS[self.habitat_model]
+
+    @property
+    def run_id(self) -> str:
+        """``<aoi>/<species>`` - one built map per AOI and target."""
+        return f"{self.aoi_id}/{self.species_id}"
+
+    @property
     def resolution(self) -> float:
         return float(self.pipeline["grid"]["resolution_m"])
 
@@ -87,13 +135,32 @@ class Config:
         return p
 
     @property
+    def species_interim_dir(self) -> Path:
+        """Per-AOI *and* per-species.
+
+        Anything that depends on the species profile (scores, thresholds,
+        classes) lives here, so two targets on one AOI do not overwrite each
+        other. Species-independent layers - DEM, Sentinel-2 composites, drive
+        times, tenure, raw inventory attributes - stay in ``interim_dir`` and
+        are shared, which is what makes a second species cheap to add.
+        """
+        p = self.interim_dir / self.species_id
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @property
     def output_dir(self) -> Path:
-        p = self._dir("output") / self.aoi_id
+        p = self._dir("output") / self.aoi_id / self.species_id
         p.mkdir(parents=True, exist_ok=True)
         return p
 
     def interim(self, name: str) -> Path:
+        """Shared, species-independent layer."""
         return self.interim_dir / name
+
+    def species_interim(self, name: str) -> Path:
+        """Species-dependent layer."""
+        return self.species_interim_dir / name
 
     def output(self, name: str) -> Path:
         return self.output_dir / name
@@ -121,6 +188,7 @@ def load_config(
 
     species = load_json(root / pipeline["species"])
     weights = load_json(root / pipeline["weights"])
+    weights = _apply_weights_override(weights, species.get("weights_override"), species["id"])
     aoi_path = root / pipeline["aoi"]
     aoi = gpd.read_file(aoi_path)
     if aoi.crs is None:

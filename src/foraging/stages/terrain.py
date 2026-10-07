@@ -94,7 +94,7 @@ def run(cfg: Config, log=print) -> dict:
     grid.write(cfg.interim("elevation.tif"), dem)
     grid.write(cfg.interim("slope.tif"), slope)
     grid.write(cfg.interim("aspect.tif"), aspect)
-    grid.write(cfg.interim("score_terrain.tif"), score.astype("float32"))
+    grid.write(cfg.species_interim("score_terrain.tif"), score.astype("float32"))
 
     n_ok = int(np.isfinite(score).sum())
     log(f"[terrain] elevation {np.nanmin(dem):.0f}-{np.nanmax(dem):.0f} m")

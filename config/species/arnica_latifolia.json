@@ -3,6 +3,7 @@
   "id": "arnica_latifolia",
   "common_name": "Mountain arnica",
   "scientific_name": "Arnica latifolia",
+  "habitat_model": "spectral",
   "habitat_note": "Subalpine meadows AND open subalpine forest / forest edge. Deliberately NOT restricted to treeless meadow: A. latifolia is common under open canopy, so the vegetation stage scores a band of canopy openness rather than applying a binary meadow/forest cut.",
   "observations": {
     "taxon_name": "Arnica latifolia",
@@ -70,6 +71,14 @@
       "penalty": 0.25,
       "recovery_years": 45
     }
+  },
+  "validation": {
+    "$comment": "Read by scripts/validate.py. The contrast shares collectors, season and access bias with the target but not its habitat.",
+    "target": "Arnica latifolia",
+    "contrast": "Arnica cordifolia",
+    "contrast_label": "forest congener",
+    "query_taxa": ["Arnica"],
+    "config": "config/pipeline.validation.json"
   },
   "imagery_window_override": null
 }

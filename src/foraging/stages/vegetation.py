@@ -140,6 +140,13 @@ def logging_age(cfg: Config, grid: Grid, log=print) -> np.ndarray:
 
 
 def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = False) -> dict:
+    if cfg.habitat_layer != "vegetation":
+        # Not an error: a host-tree species gets its habitat signal from the
+        # forest stage, and the Sentinel-2 download is the slowest thing in the
+        # pipeline, so it is not done for nothing.
+        log(f"[vegetation] skipped - {cfg.species_id} uses habitat_model "
+            f"'{cfg.habitat_model}' (see the forest stage)")
+        return {"skipped": True}
     if grid is None:
         _, grid = Grid.read(cfg.interim("elevation.tif"))
 
@@ -323,9 +330,9 @@ def classify(cfg: Config, grid: Grid, ndvi, ndmi, texture, log=print) -> dict:
     grid.write(cfg.interim("ndvi.tif"), ndvi)
     grid.write(cfg.interim("ndmi.tif"), ndmi)
     grid.write(cfg.interim("ndvi_texture.tif"), texture)
-    grid.write(cfg.interim("canopy_closure.tif"), closure.astype("float32"))
-    grid.write(cfg.interim("score_vegetation.tif"), score)
-    grid.write(cfg.interim("veg_class.tif"), veg_class, dtype="uint8")
+    grid.write(cfg.species_interim("canopy_closure.tif"), closure.astype("float32"))
+    grid.write(cfg.species_interim("score_vegetation.tif"), score)
+    grid.write(cfg.species_interim("veg_class.tif"), veg_class, dtype="uint8")
 
     counts = {CLASS_NAMES[k]: int((veg_class == k).sum()) for k in CLASS_NAMES}
     total = max(sum(counts.values()), 1)

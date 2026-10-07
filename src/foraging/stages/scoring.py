@@ -21,6 +21,8 @@ from shapely.geometry import Point
 from ..config import Config
 from ..curves import weighted_mean
 from ..grid import Grid
+from .forest import CLASS_NAMES as FOREST_CLASS_NAMES
+from .forest import leading_label
 from .landstatus import CLASS_KEYS, CLASS_LABELS
 from .vegetation import CLASS_NAMES as VEG_CLASS_NAMES
 
@@ -35,21 +37,35 @@ def compass_label(bearing_deg: float) -> str:
 
 
 def _read(cfg: Config, name: str):
-    path = cfg.interim(f"{name}.tif")
-    if not path.exists():
-        return None
-    return Grid.read(path)[0]
+    """Species layer if there is one, else the shared per-AOI layer."""
+    for path in (cfg.species_interim(f"{name}.tif"), cfg.interim(f"{name}.tif")):
+        if path.exists():
+            return Grid.read(path)[0]
+    return None
+
+
+def _read_component(cfg: Config, name: str):
+    """A score component - species directory only.
+
+    No fallback to the shared directory: builds from before species were
+    separated left ``score_*.tif`` there, and reading one would silently score
+    this species with another's thresholds.
+    """
+    path = cfg.species_interim(f"{name}.tif")
+    return Grid.read(path)[0] if path.exists() else None
 
 
 def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     if grid is None:
         _, grid = Grid.read(cfg.interim("elevation.tif"))
 
+    habitat = cfg.habitat_layer
     components = {
-        "terrain": _read(cfg, "score_terrain"),
-        "vegetation": _read(cfg, "score_vegetation"),
+        "terrain": _read_component(cfg, "score_terrain"),
+        habitat: _read_component(cfg, f"score_{habitat}"),
+        # Access is species-independent and shared per AOI.
         "access": _read(cfg, "score_access"),
-        "observations": _read(cfg, "score_observations"),
+        "observations": _read_component(cfg, "score_observations"),
     }
     missing = [k for k, v in components.items() if v is None]
     if missing:
@@ -58,16 +74,16 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     weights = cfg.weights["weights"]
     score = weighted_mean(components, weights).astype("float32")
 
-    # Terrain and vegetation carry the hard filters; a cell rejected by either
-    # is not a candidate at all, regardless of how it scores elsewhere.
-    for key in ("terrain", "vegetation"):
+    # Terrain and the habitat layer carry the hard filters; a cell rejected by
+    # either is not a candidate at all, regardless of how it scores elsewhere.
+    for key in ("terrain", habitat):
         score = np.where(np.isfinite(components[key]), score, np.nan)
 
     excluded = _read(cfg, "land_excluded")
     if excluded is not None:
         score = np.where(excluded.astype(bool), np.nan, score)
 
-    grid.write(cfg.interim("score_total.tif"), score)
+    grid.write(cfg.species_interim("score_total.tif"), score)
     grid.write(cfg.output("suitability.tif"), score)
 
     finite = np.isfinite(score)
@@ -80,6 +96,7 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
 
 def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
     """Cluster high-scoring cells into discrete ranked sites."""
+    habitat = cfg.habitat_layer
     scfg = cfg.pipeline["sites"]
     min_area_ha = float(scfg["min_area_ha"])
     max_sites = int(scfg["max_sites"])
@@ -129,6 +146,12 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         "ndvi": _read(cfg, "ndvi"),
         "canopy_closure": _read(cfg, "canopy_closure"),
         "veg_class": _read(cfg, "veg_class"),
+        "forest_class": _read(cfg, "forest_class"),
+        "host_fraction": _read(cfg, "host_fraction"),
+        "stand_age": _read(cfg, "stand_age"),
+        "crown_closure_pct": _read(cfg, "crown_closure_pct"),
+        "leading_species": _read(cfg, "leading_species"),
+        "leading_species_pct": _read(cfg, "leading_species_pct"),
         "drive_minutes": _read(cfg, "drive_minutes"),
         "hike_minutes": _read(cfg, "hike_minutes"),
         "hike_km": _read(cfg, "hike_km"),
@@ -175,8 +198,12 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
 
         tenure_code = int(at("land_tenure", 0) or 0)
         tenure_key = CLASS_KEYS.get(tenure_code, "crown_land")
-        veg_code = int(at("veg_class", 0) or 0)
         aspect = at("aspect")
+        if habitat == "forest":
+            habitat_class = FOREST_CLASS_NAMES.get(int(at("forest_class", 0) or 0), "no inventory")
+        else:
+            habitat_class = VEG_CLASS_NAMES.get(int(at("veg_class", 0) or 0), "unknown")
+        lead = at("leading_species", 0)
 
         rows.append({
             "rank": 0,
@@ -189,7 +216,11 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "aspect_compass": compass_label(float(aspect)) if aspect is not None else "n/a",
             "ndvi": None if at("ndvi") is None else round(float(at("ndvi")), 3),
             "canopy_closure": None if at("canopy_closure") is None else round(float(at("canopy_closure")), 3),
-            "veg_class": VEG_CLASS_NAMES.get(veg_code, "unknown"),
+            "veg_class": habitat_class,
+            "host_fraction": None if at("host_fraction") is None else round(float(at("host_fraction")), 2),
+            "leading_species": leading_label(int(lead) if lead is not None else None, at("leading_species_pct")),
+            "stand_age_years": None if at("stand_age") is None else int(at("stand_age")),
+            "crown_closure_pct": None if at("crown_closure_pct") is None else int(at("crown_closure_pct")),
             "years_since_logging": None if at("logging_age") is None else int(at("logging_age")),
             "on_cutblock": at("logging_age") is not None,
             "drive_minutes": None if at("drive_minutes") is None else round(float(at("drive_minutes")), 1),
@@ -199,7 +230,7 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "land_status_label": CLASS_LABELS.get(tenure_key, tenure_key),
             "land_flagged": tenure_key != cfg.weights["legality"].get("unflagged_default", "crown_land"),
             "score_terrain": _round_at(components["terrain"], r, c),
-            "score_vegetation": _round_at(components["vegetation"], r, c),
+            "score_habitat": _round_at(components[habitat], r, c),
             "score_access": _round_at(components["access"], r, c),
             "score_observations": _round_at(components["observations"], r, c),
             "_x": x,
@@ -208,7 +239,12 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
 
     gdf = gpd.GeoDataFrame(rows, geometry=[Point(r["_x"], r["_y"]) for r in rows], crs=grid.crs)
     gdf = gdf.drop(columns=["_x", "_y"])
-    gdf = gdf.sort_values("score", ascending=False).head(max_sites).reset_index(drop=True)
+    # Saturating curves put whole patches at the same peak score (for the
+    # chanterelle profile, dozens of host-rich stands tie at the ceiling), so
+    # ties are broken by how good the patch is overall, then by its size,
+    # rather than by whatever order the labels came out in.
+    gdf = (gdf.sort_values(["score", "mean_score", "area_ha"], ascending=False, kind="stable")
+              .head(max_sites).reset_index(drop=True))
     gdf["rank"] = np.arange(1, len(gdf) + 1)
 
     # Observation counts are measured on the real points, not the smoothed
@@ -318,6 +354,7 @@ def _write_manifest(cfg, gdf, grid) -> None:
     """Everything the web UI needs to configure itself for this AOI."""
     bounds = cfg.aoi.total_bounds
     manifest = {
+        "run_id": cfg.run_id,
         "aoi": {
             "id": cfg.aoi_id,
             "label": cfg.aoi_label,
@@ -328,6 +365,9 @@ def _write_manifest(cfg, gdf, grid) -> None:
             "common_name": cfg.species.get("common_name"),
             "scientific_name": cfg.species.get("scientific_name"),
             "habitat_note": cfg.species.get("habitat_note"),
+            "habitat_model": cfg.habitat_model,
+            "habitat_label": "Host trees" if cfg.habitat_layer == "forest" else "Vegetation",
+            "season_months": cfg.species["observations"].get("months"),
         },
         "origin": cfg.pipeline["access"]["origin"],
         "weights": cfg.weights["weights"],

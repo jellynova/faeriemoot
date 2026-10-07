@@ -23,14 +23,6 @@
     observations: { label: "iNaturalist records", file: "observations.geojson", colour: "#e2679a", points: true }
   };
 
-  var VEG_LEGEND = [
-    ["#78c85a", "Open meadow"],
-    ["#3c8c50", "Open forest"],
-    ["#19462d", "Closed forest"],
-    ["#c67a3e", "Regenerating cutblock"],
-    ["#aa9682", "Bare / rock / scree"]
-  ];
-
   var TENURE_LEGEND = [
     ["#5aaa6e", "Provincial park"],
     ["#dc7878", "Private property"],
@@ -106,7 +98,8 @@
         idx.areas.forEach(function (a) {
           var o = document.createElement("option");
           o.value = a.id;
-          o.textContent = a.label + " (" + a.sites + " sites)";
+          o.textContent = a.label + " - " + (a.common_name || a.species || "?") +
+            " (" + a.sites + " sites)";
           sel.appendChild(o);
         });
         sel.addEventListener("change", function () { loadArea(sel.value); });
@@ -169,10 +162,12 @@
 
     var w = m.imagery_window || {};
     var origin = m.origin || {};
+    var habitatSource = sp.habitat_model === "host_trees"
+      ? "Host trees from the BC Vegetation Resources Inventory."
+      : "Imagery " + (w.window_start || "") + " to " + (w.window_end || "") +
+        " across " + ((w.years || []).join(", ")) + ".";
     $("provenance").textContent =
-      "Drive times from " + (origin.name || "origin") + ". Imagery " +
-      (w.window_start || "") + " to " + (w.window_end || "") +
-      " across " + ((w.years || []).join(", ")) + ".";
+      "Drive times from " + (origin.name || "origin") + ". " + habitatSource;
 
     syncOutputs();
   }
@@ -210,11 +205,11 @@
 
     $("export-gpx").addEventListener("click", function () {
       var f = visibleSites();
-      if (f.length) download(current.id + "-sites.gpx", "application/gpx+xml", toGPX(f));
+      if (f.length) download(current.id.replace(/\//g, "-") + "-sites.gpx", "application/gpx+xml", toGPX(f));
     });
     $("export-csv").addEventListener("click", function () {
       var f = visibleSites();
-      if (f.length) download(current.id + "-sites.csv", "text/csv", toCSV(f));
+      if (f.length) download(current.id.replace(/\//g, "-") + "-sites.csv", "text/csv", toCSV(f));
     });
 
     $("sidebar-toggle").addEventListener("click", function () {
@@ -334,6 +329,7 @@
         "<desc>" + esc(
           "score " + p.score.toFixed(3) +
           "; " + p.veg_class +
+          (p.leading_species ? "; leading " + p.leading_species : "") +
           "; slope " + p.slope_deg + " deg" +
           "; drive " + p.drive_minutes + " min" +
           "; hike " + p.hike_km + " km" +
@@ -347,7 +343,8 @@
 
   function toCSV(feats) {
     var cols = ["rank", "score", "lat", "lon", "elevation_m", "aspect_compass", "slope_deg",
-                "veg_class", "years_since_logging", "area_ha", "drive_minutes", "hike_km",
+                "veg_class", "leading_species", "host_fraction", "stand_age_years",
+                "years_since_logging", "area_ha", "drive_minutes", "hike_km",
                 "hike_minutes", "land_status_label", "inat_nearby"];
     var rows = feats.map(function (f) {
       var p = f.properties, c = f.geometry.coordinates;
@@ -367,7 +364,14 @@
            Math.round(v * 100) + '%"></span></span><span>' + v.toFixed(2) + "</span></div>";
   }
 
+  function isHostModel() {
+    return ((current.manifest.species || {}).habitat_model) === "host_trees";
+  }
+
   function popupHTML(p, coords) {
+    var hostModel = isHostModel();
+    var habitatLabel = (current.manifest.species || {}).habitat_label || "Vegetation";
+    var habitatScore = p.score_habitat !== undefined ? p.score_habitat : p.score_vegetation;
     var lat = coords[1].toFixed(5), lon = coords[0].toFixed(5);
     var html =
       '<div class="pop"><h3>Rank ' + p.rank + " &middot; " + fmt(p.elevation_m) + " m</h3>" +
@@ -375,11 +379,16 @@
       "<dl>" +
       "<dt>Aspect</dt><dd>" + (p.aspect_compass || "-") + " (" + fmt(p.aspect_deg) + "&deg;)</dd>" +
       "<dt>Slope</dt><dd>" + fmt(p.slope_deg, 1, "&deg;") + "</dd>" +
-      "<dt>Vegetation</dt><dd>" + (p.veg_class || "-") + "</dd>" +
+      "<dt>" + (hostModel ? "Forest" : "Vegetation") + "</dt><dd>" + (p.veg_class || "-") + "</dd>" +
+      (hostModel
+        ? "<dt>Leading tree</dt><dd>" + (p.leading_species || "-") + "</dd>" +
+          "<dt>Host share</dt><dd>" + fmt(p.host_fraction === null ? null : p.host_fraction * 100, 0, "%") + "</dd>" +
+          "<dt>Stand age</dt><dd>" + fmt(p.stand_age_years, 0, " yr") + "</dd>"
+        : "") +
       (p.on_cutblock
         ? "<dt>Logged</dt><dd>" + p.years_since_logging + " yr ago</dd>"
         : "") +
-      "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>" +
+      (hostModel ? "" : "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>") +
       "<dt>Patch area</dt><dd>" + fmt(p.area_ha, 1, " ha") + "</dd>" +
       "<dt>Drive</dt><dd>" + minutesLabel(p.drive_minutes) + "</dd>" +
       "<dt>Hike</dt><dd>" + fmt(p.hike_km, 2, " km") + " / " + minutesLabel(p.hike_minutes) + "</dd>" +
@@ -388,16 +397,19 @@
       "</dl>" +
       '<div class="bars">' +
         bar("Terrain", p.score_terrain) +
-        bar("Vegetation", p.score_vegetation) +
+        bar(habitatLabel, habitatScore) +
         bar("Access", p.score_access) +
         bar("Observations", p.score_observations) +
       "</div>";
 
     if (p.on_cutblock && p.years_since_logging !== null && p.years_since_logging < 45) {
       html += '<div class="flagbox"><strong>Regenerating cutblock</strong><br>' +
-              "Logged " + p.years_since_logging + " years ago. Open ground here is " +
-              "harvest regrowth, not natural meadow - the score is already " +
-              "penalised for this.</div>";
+              "Logged " + p.years_since_logging + " years ago. " +
+              (hostModel
+                ? "Harvest removes the host trees; the stand-age credit already " +
+                  "accounts for how long they take to come back."
+                : "Open ground here is harvest regrowth, not natural meadow - the " +
+                  "score is already penalised for this.") + "</div>";
     }
 
     if (p.land_flagged) {
@@ -527,8 +539,8 @@
     if (!spec) { box.innerHTML = ""; return; }
 
     var html = "<h3>" + spec.label + "</h3>";
-    if (activeLegend === "vegetation" || activeLegend === "land_tenure") {
-      var rows = activeLegend === "vegetation" ? VEG_LEGEND : TENURE_LEGEND;
+    if (spec.legend || activeLegend === "land_tenure") {
+      var rows = spec.legend || TENURE_LEGEND;
       rows.forEach(function (r) {
         html += '<div class="row"><span class="swatch" style="background:' + r[0] + '"></span>' + r[1] + "</div>";
       });
