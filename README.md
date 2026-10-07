@@ -4,10 +4,16 @@ Predicts and ranks likely wild-foraging sites by stacking terrain, vegetation,
 access and observation data into a per-site suitability score, then serving the
 ranked sites as clickable pins on an interactive map.
 
-The first target is mountain arnica (*Arnica latifolia*) in the West Kootenays,
-BC — Rossland / Castlegar / Salmo. Nothing about that region is hard-coded:
-the AOI, the target species and the scoring weights are all swappable config
-files.
+Two targets ship for the West Kootenays, BC — Rossland / Castlegar / Salmo:
+
+* **Mountain arnica** (*Arnica latifolia*), a subalpine meadow plant, scored on
+  terrain and its Sentinel-2 vegetation signature.
+* **Pacific golden chanterelle** (*Cantharellus formosus*), a fall-fruiting
+  mycorrhizal mushroom, scored on terrain and the **host-tree composition** of
+  each forest stand from BC's Vegetation Resources Inventory.
+
+Nothing about that region is hard-coded: the AOI, the target species and the
+scoring weights are all swappable config files.
 
 > **This tool describes land tenure, not permission.** A site's land-status
 > flag tells you what kind of ground it is, not whether you may harvest there.
@@ -20,7 +26,8 @@ files.
 
 ```bash
 uv venv && uv pip install -e .        # or: pip install -e .
-forage run                            # full pipeline, ~2 minutes
+forage run                            # arnica, full pipeline, ~2 minutes
+forage run --species config/species/cantharellus_formosus.json   # chanterelle
 python -m http.server -d web 8000     # then open http://localhost:8000
 ```
 
@@ -32,12 +39,14 @@ anonymous.
 ## What it does
 
 Each 30 m cell in the area of interest is scored by four layers, then
-high-scoring cells are clustered into discrete sites and ranked.
+high-scoring cells are clustered into discrete sites and ranked. The habitat
+layer is one of two, chosen by the species profile's `habitat_model`.
 
 | Layer | What it contributes | Source |
 |---|---|---|
-| **Terrain** | Elevation band, slope, aspect (south-to-southwest preferred) | Copernicus GLO-30 DEM via Planetary Computer |
-| **Vegetation** | Open meadow / open forest vs closed canopy or bare rock | Sentinel-2 L2A, seasonal composite |
+| **Terrain** | Elevation band, slope, aspect (per-species preference) | Copernicus GLO-30 DEM via Planetary Computer |
+| **Vegetation** (`spectral`) | Open meadow / open forest vs closed canopy or bare rock | Sentinel-2 L2A, seasonal composite |
+| **Forest** (`host_trees`) | Share of mycorrhizal host trees in the stand, stand age, crown closure | BC Vegetation Resources Inventory (VRI), rank-1 layer |
 | **Access** | Drive minutes from your origin + least-cost hike from the road | BC Digital Road Atlas, forest tenure roads, OSM trails |
 | **Observations** | Proximity boost from real sightings | iNaturalist research-grade records |
 | **Land status** | Tenure flag — *flagged, never silently down-ranked* | BC parks, ParcelMap BC, forest tenure |
@@ -48,11 +57,18 @@ can judge the trade-off yourself.
 ### Pipeline stages
 
 ```
-terrain → vegetation → access → observations → landstatus → scoring → export
+terrain → vegetation | forest → access → observations → landstatus → scoring → export
 ```
 
+`vegetation` and `forest` are alternatives: each skips itself unless the
+species profile selects it, so a chanterelle run never downloads Sentinel-2.
+
 Any stage can be re-run on its own (`forage scoring`), reading what it needs
-from `data/interim/<aoi>/`. Retuning weights and rebuilding the map takes a few
+from `data/interim/<aoi>/`. Layers that do not depend on the target (DEM,
+imagery composites, drive times, tenure, raw inventory attributes) are shared
+there; everything species-specific lives under `data/interim/<aoi>/<species>/`,
+so two targets on one AOI never overwrite each other and the second one reuses
+the first one's downloads. Retuning weights and rebuilding the map takes a few
 seconds and re-downloads nothing.
 
 ```bash
@@ -70,7 +86,7 @@ Everything tunable lives in `config/`.
 | File | Controls |
 |---|---|
 | `config/pipeline.json` | AOI selection, grid resolution, **drive-time origin**, imagery window, site clustering |
-| `config/species/*.json` | Elevation band, slope/aspect preference, vegetation thresholds, iNaturalist taxon |
+| `config/species/*.json` | Habitat model, elevation band, slope/aspect preference, vegetation thresholds or host-tree table, iNaturalist taxon, per-species weight overrides, validation taxa |
 | `config/weights.json` | Layer weights, hard filters, which land classes are excluded vs flagged |
 
 ### Setting your origin
@@ -91,9 +107,9 @@ forage run --aoi config/aoi/nelson.geojson
 ```
 
 The analysis grid picks its own UTM zone from the AOI, every layer is fetched
-for the new extent, and outputs land in a parallel `output/nelson/` and
-`web/data/nelson/`. The map UI reads `web/data/index.json` and offers a region
-switcher — no code changes. `config/aoi/nelson.geojson` ships as a worked
+for the new extent, and outputs land in a parallel `output/nelson/<species>/`
+and `web/data/nelson/<species>/`. The map UI reads `web/data/index.json` and
+offers a region-and-species switcher — no code changes. `config/aoi/nelson.geojson` ships as a worked
 second example (80 sites); `forage areas` lists what is available.
 
 The origin does **not** have to sit inside the AOI — the road fetch is extended
@@ -109,8 +125,22 @@ Copy a species profile and pass it the same way:
 forage run --species config/species/my_plant.json
 ```
 
-The vegetation thresholds are the part most worth re-tuning; see the modelling
-notes below for how the current ones were calibrated.
+First decide what the target's habitat signal actually is:
+
+* **`"habitat_model": "spectral"`** (copy `arnica_latifolia.json`) when the
+  target's habitat is visible from orbit — open meadow, a canopy gap, bare
+  ground. The vegetation thresholds are the part most worth re-tuning; see the
+  modelling notes below for how the current ones were calibrated.
+* **`"habitat_model": "host_trees"`** (copy `cantharellus_formosus.json`) for a
+  mycorrhizal fungus, or anything else that tracks particular tree species. Edit
+  the `forest.host_affinity` table (VRI species codes, matched by longest
+  prefix, so `FD` covers `FDI` and `FDC`), the stand-age knots and the
+  crown-closure band.
+
+A profile's `weights_override` replaces the `weights` and `terrain_subweights`
+sections of `config/weights.json` for that species only. It cannot touch
+access, legality or hard filters, because those layers are shared by every
+species on the AOI.
 
 ---
 
@@ -165,6 +195,58 @@ labelled *regenerating cutblock* rather than *open meadow*. Tune it with
 `vegetation.logging` in the species profile. Note that harvest records do not
 go back indefinitely, so old cuts may still pass as meadow.
 
+**A mushroom is scored by its trees, not its reflectance.** The arnica model
+reads the target's own habitat off Sentinel-2. That cannot transfer to a
+mycorrhizal fungus: it is invisible at 10 m, and NDVI/NDMI cannot tell a
+Douglas-fir stand from an equally green, equally closed cedar or spruce one —
+which is the one distinction that matters, since *C. formosus* fruits only
+where its host's roots are, and cedar cannot host it at all (it forms
+arbuscular, not ectomycorrhizal, associations). The forest stage reads species
+composition per stand from VRI instead:
+`host credit × stand-age credit × crown-closure credit`, where host credit is
+the percentage-weighted affinity of the stand's up-to-six species, saturating at
+a 50% host share. Stand age is the younger of the inventory's projected age and
+years since harvest from the cutblock layer, so a block cut after the inventory
+was last updated still reads as freshly logged, and logging is handled through
+the hosts being removed rather than through a separate penalty. Below a 15% host
+share a cell is not habitat at all.
+
+On the West Kootenays this puts 27% of the AOI in host-rich forest, almost all
+of it Douglas-fir-led (164 of the 178 ranked sites). Worth knowing:
+
+* **Every host-tree number is an expert prior, not a fit.** The host table
+  follows Pilz et al. (2003, USDA PNW-GTR-576) for Douglas-fir and hemlock; the
+  values for pine, spruce and true firs are guesses, flagged as such in the
+  profile. There are no usable records to fit or test against (see Validation).
+* **Most of the best ground is private.** Douglas-fir dominates the warm valley
+  bottoms and lower slopes, which is where the towns and private land are: 95
+  of the 178 chanterelle sites carry a land-status flag, against 14 of arnica's
+  188 subalpine sites.
+  Use the *hide flagged land* filter.
+* **The top of the list ties.** With the observation layer flat (no usable
+  records) and host credit saturating, many patches reach the same ceiling
+  score; ties are broken by patch mean score, then area. Treat the top few dozen
+  as equally good candidates, not a strict order.
+* *C. formosus* is chiefly a coastal and Cascades species. In the interior,
+  golden chanterelles also include *C. roseocanus*, which follows spruce and
+  pine. The map says where the right trees are; field ID is still yours.
+
+**iNaturalist is queried by taxon ID, not by name.** The API's `taxon_name`
+parameter also matches *common* names, so it is not a taxonomic filter: a
+"Cantharellus" query returned the false chanterelle (*Hygrophoropsis*, a
+different order) and *Hygrocybe cantharellus*, and the "Arnica" query had been
+returning five *Erigeron divergens* records, which the observation layer then
+weighted as "other Arnica". Names are now resolved to an exact-match taxon ID
+first.
+
+**Obscured records are dropped.** Records of threatened taxa, or from observers
+who set their geoprivacy to obscured, publish a point randomised within a cell
+of roughly 20 × 15 km here. The stated `positional_accuracy` is the observer's
+GPS figure and does not reflect this, so the accuracy filter alone does not
+catch them. A proximity boost around an obscured point boosts a random spot.
+Foragers obscure their finds: every golden-chanterelle record in the Kootenays
+is obscured.
+
 **Hike cost is isotropic.** Tobler's hiking function is applied to terrain
 slope magnitude, not slope along the direction of travel — the standard GIS
 approximation. Expect hike times to be slightly conservative on traverses.
@@ -175,53 +257,144 @@ approximation. Expect hike times to be slightly conservative on traverses.
 
 ### Against real occurrences
 
-`scripts/validate.py` tests the model against research-grade *Arnica* records
-over a 30,000 km² Kootenays extent. Two confounds have to be removed first:
-observations feed the score (circularity), and botanists walk near roads, which
-the access layer rewards (sampling bias). So the test scores against a
-**habitat-only** surface — terrain and vegetation, with access and observations
-dropped. Records coarser than 100 m positional accuracy are excluded.
-
-| Group | n | Median score percentile |
-|---|---|---|
-| *A. latifolia* (target) | 26 | **0.81** |
-| *A. cordifolia* (forest congener) | 10 | 0.63 |
-| random null | 40,000 | 0.50 |
-
-| Comparison | AUC |
-|---|---|
-| target vs random null | 0.71 |
-| target vs forest congener | 0.71 |
-| **terrain alone**, target vs congener | **0.81** |
-
-The congener comparison is the meaningful one: both species share collectors,
-seasons and access bias, so beating it means the model is tracking *habitat*
-rather than *where people walk*.
+`scripts/validate.py` tests the model against research-grade iNaturalist
+records over a 30,000 km² Kootenays extent at 90 m. Two confounds have to be
+removed first: observations feed the score (circularity), and collectors walk
+near roads, which the access layer rewards (sampling bias). So the test scores
+against a **habitat-only** surface — terrain plus the species' habitat layer,
+with access and observations dropped — and its sharper comparison is against a
+**contrast taxon** that shares collectors, seasons and access bias with the
+target but not its habitat. For arnica that is the forest congener
+*A. cordifolia*.
 
 ```bash
-python scripts/validate.py
+python scripts/validate.py                                                  # arnica
+python scripts/validate.py --species config/species/cantharellus_formosus.json
 ```
 
-### What the validation says the model is actually doing
+#### How the small sample is handled
 
-**Elevation carries almost all of it.** Per-layer AUC against the congener:
-elevation 0.86, aspect 0.58, vegetation 0.58, slope 0.52. If you retune one
-thing, retune the elevation band.
+With a few dozen records the useful question is not "what is the AUC" but
+"what range of AUCs is this sample compatible with". The script, and the
+statistics in `src/foraging/validation.py`, deal with five problems the
+earlier version did not:
 
-**Vegetation does not add species discrimination.** Terrain alone separates the
-two species better (0.81) than terrain plus vegetation (0.71). Sweeping
-`openness_preference.open_forest` from 0.10 to 1.0 barely moves it, so this is
-not a tuning problem. Two honest caveats before concluding the layer is
-useless: the validation extent runs at 90 m, where meadow and open forest mix
-heavily inside one cell, and the congener test only measures *latifolia vs
-cordifolia*, which cannot reward vegetation for doing its actual job —
-rejecting closed canopy, scree and clearcut. The weights are left at their
-defaults; the evidence for changing them is a 26-against-10 sample, which is
-too thin to re-weight on.
+1. **Hard-filter rejects were silently dropped.** A record on ground the hard
+   filters reject (NaN score) was excluded rather than counted as a miss. That
+   conditions the test on the model already having succeeded, and it gutted
+   the congener comparison: **54 of 65 usable *A. cordifolia* records sit below
+   the 1,300 m hard floor**, so the old test compared the target against only
+   the 11 cordifolia that happen to grow in subalpine terrain. The 8 target
+   records on rejected ground were dropped too. Rejects now rank last.
+2. **Layers were compared on different records.** The combined score is NaN
+   wherever either hard filter fires, but the single-layer curves (elevation
+   fit and so on) are finite almost everywhere, so each row of the old
+   per-layer table was computed on a different subset of records. Every
+   surface is now scored on the same records and the same null cells.
+3. **Records are not independent.** 35 usable target records collapse to 22
+   spatial clusters at 1 km: one person photographing one meadow repeatedly.
+   The bootstrap resamples clusters, not records, and the permutation test
+   exchanges cluster means.
+4. **No uncertainty was reported**, and the claim "terrain alone beats terrain
+   + vegetation" is a difference measured on the same records, which needs a
+   paired interval. Every AUC now carries a 95% cluster-bootstrap interval,
+   and layer comparisons use paired replicates.
+5. **Obscured records were not excluded.** None of the arnica records are
+   obscured, so this changes nothing for arnica; it matters for chanterelle
+   (below).
 
-**Samples are small.** iNaturalist has a couple of dozen usable records across
-the whole extent. Treat the sign and rough magnitude as the result, not the
-third decimal.
+Below 10 independent target clusters the script reports the record counts and
+stops instead of printing an AUC.
+
+#### Arnica results
+
+35 target and 65 congener records (≤ 100 m stated accuracy; 22 and 54
+clusters). Percentiles are among all cells of the extent, with rejected ground
+ranked last.
+
+| Group | Records | Median score percentile | On rejected ground |
+|---|---|---|---|
+| *A. latifolia* (target) | 35 | **0.81** | 8 |
+| *A. cordifolia* (forest congener) | 65 | 0.00 | 54 |
+| random null | 40,000 | 0.50 | — |
+
+| Surface | AUC vs random null | AUC vs congener |
+|---|---|---|
+| habitat score (terrain + vegetation) | 0.70 [0.54, 0.81] | **0.83 [0.70, 0.91]** |
+| terrain | 0.74 [0.60, 0.83] | 0.88 [0.76, 0.95] |
+| — elevation fit | 0.65 [0.53, 0.73] | 0.86 [0.75, 0.93] |
+| — slope fit | 0.60 [0.54, 0.64] | 0.53 [0.46, 0.59] |
+| — aspect fit | 0.63 [0.52, 0.72] | 0.59 [0.43, 0.73] |
+| vegetation layer | 0.68 [0.55, 0.76] | 0.57 [0.39, 0.71] |
+
+AUC [95% interval]; 2,000 cluster-bootstrap replicates; 1 km clusters. Cluster
+permutation p < 0.001 for the habitat score, terrain and elevation against the
+congener; 0.44, 0.23 and 0.49 for slope, aspect and vegetation.
+
+For comparison, the previous version of this script, re-run on the same data,
+reported 0.72 against the null and 0.74 against the congener, on 27 and 11
+records, with no intervals.
+
+#### What the validation says the model is actually doing
+
+**The model separates the target from the congener clearly.** AUC 0.83, with an
+interval well clear of 0.5 — stronger than previously reported, because the
+cordifolia records that the hard filters correctly reject now count. This is
+the comparison that controls for collector bias, so it is the evidence that the
+model tracks habitat rather than access.
+
+**Elevation still carries almost all of it**, and the elevation band was set by
+hand. If it was set while looking at these records, these figures are
+in-sample and optimistic. Any further retune of the band against them makes
+them training data; hold some records out first.
+
+**Vegetation does useful work, but not species discrimination.** Against
+random ground the vegetation layer alone scores 0.68 [0.55, 0.76]: it does pick
+out arnica habitat from the landscape, which is its job (rejecting closed
+canopy, scree and clearcut). Against the congener it is 0.57 [0.39, 0.71],
+indistinguishable from chance. Adding it to terrain changes the AUC by −0.04
+against both the null [−0.12, +0.03] and the congener [−0.11, +0.00]: no
+detectable effect either way. The data cannot say that vegetation hurts, only
+that it does not demonstrably help at 90 m, where meadow and open forest mix
+inside one cell. The weights are left at their defaults.
+
+**The intervals are what 22 clusters buy.** They are ±0.1 or wider. A layer
+effect smaller than about 0.1 AUC cannot be detected with this sample, so a
+re-weighting that moves the AUC by a few hundredths is not evidence of
+anything. The conclusions above do not change between 0 m and 3 km clustering.
+Treating records as independent (0 m) narrows every interval, and nearly
+triples the apparent significance of the vegetation layer against the congener
+(p = 0.14 against 0.49), which is exactly the overconfidence clustering
+prevents.
+
+#### Chanterelle: not validated, and why
+
+The chanterelle model cannot be tested against occurrences in this region.
+Across the whole 30,000 km² extent iNaturalist has one research-grade
+*C. formosus* record, and it is obscured. So are all three *C. roseocanus*
+records and the one *C. cascadensis* record. The only golden-chanterelle
+records in the Kootenays have their public coordinates randomised over roughly
+20 km, which is no use for testing a 30 m map. Usable *Cantharellus* records
+of any species number 6 (all *C. subalbidus*, the white chanterelle). Running
+the script for chanterelle reports these counts and stops.
+
+This is not a statistical technicality to work around. No reweighting or
+bootstrap recovers information that is not in the data. The honest status is
+that the chanterelle map encodes published host associations and expert priors
+(stated in the profile), and is unvalidated. Ways to fix that, in order of
+value:
+
+* **Your own finds.** Even 15–20 GPS points from distinct patches, kept private,
+  would clear the minimum-sample guard. The script reads only iNaturalist
+  today, so this needs a small local-CSV record source (not yet written).
+* **A genus-level test**, with the target set to *Cantharellus* and a wider
+  extent that reaches into the wetter Columbia mountains, once usable records
+  exist there.
+* The validation block's contrast is already set to false chanterelle
+  (*Hygrophoropsis aurantiaca*, 9 usable records). It is a non-mycorrhizal
+  saprotroph found in the same forests by the same pickers in the same weeks,
+  so beating it would show that the model tracks host trees rather than
+  "conifer forest where people pick mushrooms".
 
 ### Other checks
 
@@ -234,8 +407,10 @@ Drive times against known road distances from Rossland:
 | Salmo | 41.6 min | ~42 km |
 
 Slope and aspect are pinned by unit tests against synthetic planes on nine
-bearings. `pytest` covers the membership curves, the terrain math and the
-least-cost path attribution (42 tests).
+bearings. `pytest` covers the membership curves, the terrain math, the
+least-cost path attribution, host-tree scoring from VRI attributes, the
+validation statistics, per-species config and paths, and occurrence-record
+filtering (82 tests).
 
 ```bash
 pytest
@@ -274,26 +449,33 @@ run yet, or `index.html` was opened as a file. It has to be served over HTTP:
 ## Outputs
 
 ```
-output/<aoi>/
+output/<aoi>/<species>/
   sites.geojson         ranked sites with full attributes
   observations.geojson  iNaturalist records used
   suitability.tif       the score surface
   manifest.json         AOI/species/filter metadata for the UI
-web/data/<aoi>/         PNG overlays + GeoJSON + manifest, ready to serve
+web/data/<aoi>/<species>/   PNG overlays + GeoJSON + manifest, ready to serve
 ```
 
 Each ranked site carries: coordinates, score, per-layer score breakdown,
-elevation, slope, aspect (degrees and compass), NDVI, canopy closure,
-vegetation class, patch area, drive minutes, hike km and minutes, nearby
-iNaturalist counts, and land-status flag.
+elevation, slope, aspect (degrees and compass), patch area, drive minutes, hike
+km and minutes, nearby iNaturalist counts, and land-status flag; plus NDVI,
+canopy closure and vegetation class for spectral targets, or forest class,
+leading tree species, host share and stand age for host-tree targets.
+
+Builds made before outputs were split by species sit directly under
+`output/<aoi>/` and `web/data/<aoi>/`. They are ignored, not migrated; re-run
+`forage run` (with `--reuse-imagery` to skip the Sentinel-2 download).
 
 ---
 
 ## Map UI
 
 Leaflet, vendored locally so it works offline. Toggleable layers for
-suitability, elevation, slope, aspect, NDVI, vegetation class, years since
-logging, land tenure, roads, trails, protected areas and observations. Filters
+suitability, elevation, slope, aspect, NDVI and vegetation class (spectral
+targets) or forest class, host-tree share and stand age (host-tree targets),
+years since logging, land tenure, roads, trails, protected areas and
+observations. Filters
 for minimum score, max drive time, max hike distance, elevation band, hiding
 flagged land and hiding recently logged ground. Vector layers are fetched only
 when switched on, since roads alone is several MB.
