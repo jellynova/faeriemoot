@@ -252,53 +252,99 @@ first*, not as a ranking of quality.
 
 ### Against real occurrences
 
-`scripts/validate.py` tests the model against research-grade *Arnica* records
-over a 30,000 km² Kootenays extent. Two confounds have to be removed first:
-observations feed the score (circularity), and botanists walk near roads, which
-the access layer rewards (sampling bias). So the test scores against a
-**habitat-only** surface — terrain and vegetation, with access and observations
-dropped. Records coarser than 100 m positional accuracy are excluded.
-
-| Group | n | Median score percentile |
-|---|---|---|
-| *A. latifolia* (target) | 26 | **0.81** |
-| *A. cordifolia* (forest congener) | 10 | 0.63 |
-| random null | 40,000 | 0.50 |
-
-| Comparison | AUC |
-|---|---|
-| target vs random null | 0.71 |
-| target vs forest congener | 0.71 |
-| **terrain alone**, target vs congener | **0.81** |
-
-The congener comparison is the meaningful one: both species share collectors,
-seasons and access bias, so beating it means the model is tracking *habitat*
-rather than *where people walk*.
+`scripts/validate.py` tests the model against research-grade iNaturalist
+records over a 30,000 km² Kootenays extent. Two confounds have to be removed
+first: observations feed the score (circularity), and people walk near roads,
+which the access layer rewards (sampling bias). So the test scores against a
+**habitat-only** surface (terrain plus the species' habitat layer), with
+access and observations dropped. Records coarser than 100 m positional accuracy
+are excluded.
 
 ```bash
-python scripts/validate.py
+python scripts/validate.py                                                   # arnica
+python scripts/validate.py --species config/species/cantharellus_formosus.json
 ```
+
+Each target is compared with a random null and with a **contrast taxon** that
+shares its collectors, season and access bias but not its habitat:
+*A. cordifolia* (a forest congener) for arnica, and the false chanterelle (a
+wood-rotting saprotroph with no host tree) for the chanterelle. Beating the
+contrast means the model tracks *habitat* rather than *where people walk*.
+
+**How the figures are computed.** The samples are small and clustered, so
+every AUC carries a stratified bootstrap 95% CI and a one-sided Mann-Whitney p.
+Each AUC is reported per record and per **site**, where same-species records
+within 1 km are merged, because twelve photos of one meadow are one piece of
+evidence. Records the hard filters reject are counted. In the "rejected = 0"
+rows they score zero, which is what the model actually says about them. The
+statistics live in `src/foraging/stats.py` and are unit-tested.
+
+#### Arnica (*A. latifolia*), October 2026 records
+
+35 precise target records at 22 sites; 65 congener records at 54 sites.
+
+| Comparison, rejected = 0 | per record | per site |
+|---|---|---|
+| target vs random null | 0.70 [0.60–0.79] | 0.59 [0.47–0.71], p = 0.07 |
+| target vs forest congener | 0.83 [0.75–0.91] | **0.75 [0.63–0.86]**, p = 2e-5 |
+| terrain alone, target vs congener | 0.88 [0.79–0.95] | **0.81 [0.70–0.91]**, p = 3e-7 |
+
+Per-layer, target vs congener, per site: elevation **0.80 [0.69–0.90]**, aspect
+0.57 [0.42–0.70], vegetation 0.56 [0.40–0.72], slope 0.53 [0.44–0.61]. Only
+elevation's interval clears 0.5.
+
+#### What changed from the earlier write-up, and why
+
+The earlier figures (target n = 26, congener n = 10, target-vs-congener
+AUC 0.71) came from a script that **dropped every record on a cell the hard
+filters reject**. That quietly removed 54 of 65 congener records, nearly all
+below the 1,300 m elevation floor. The "congener" group was therefore the
+handful of *A. cordifolia* records that happen to sit in subalpine terrain,
+the ones most like the target. The same filter hid the model's own misses:
+**8 of 35 target records (23%) fall on ground the model rejects outright** (6
+by terrain, 2 more by vegetation). Counting both properly, the model separates
+the two species better than previously reported, and it is wrong about a
+quarter of known target locations. The "admitted cells only" rows in the
+script output reproduce the old, conditional analysis for comparison.
+Percentiles now count ties half (mid-rank), so a group's mean percentile
+equals its AUC.
 
 ### What the validation says the model is actually doing
 
-**Elevation carries almost all of it.** Per-layer AUC against the congener:
-elevation 0.86, aspect 0.58, vegetation 0.58, slope 0.52. If you retune one
-thing, retune the elevation band.
+**Elevation carries almost all of it.** It is the only layer whose interval
+excludes chance. If you retune one thing, retune the elevation band, and look
+at the 23% of target records it rejects first.
 
-**Vegetation does not add species discrimination.** Terrain alone separates the
-two species better (0.81) than terrain plus vegetation (0.71). Sweeping
-`openness_preference.open_forest` from 0.10 to 1.0 barely moves it, so this is
-not a tuning problem. Two honest caveats before concluding the layer is
-useless: the validation extent runs at 90 m, where meadow and open forest mix
-heavily inside one cell, and the congener test only measures *latifolia vs
-cordifolia*, which cannot reward vegetation for doing its actual job —
-rejecting closed canopy, scree and clearcut. The weights are left at their
-defaults; the evidence for changing them is a 26-against-10 sample, which is
-too thin to re-weight on.
+**Vegetation does not add species discrimination; it slightly costs it.** On
+the same records, a paired bootstrap of AUC(terrain + vegetation) minus
+AUC(terrain alone) gives −0.04 [−0.10 to +0.00] against the congener, with 97% of
+replicates at or below zero. Against the random null it is −0.04 [−0.10 to +0.02].
+That is a small cost, not the −0.10 the earlier unpaired comparison suggested,
+which mixed two different record sets. The caveats stand: the validation
+extent runs at 90 m, where meadow and open forest mix inside one cell, and the
+congener test cannot reward vegetation for its actual job of rejecting closed
+canopy, scree and clearcut. The weights are left at their defaults.
 
-**Samples are small.** iNaturalist has a couple of dozen usable records across
-the whole extent. Treat the sign and rough magnitude as the result, not the
-third decimal.
+**Beating chance is the weak result, not the strong one.** Per site, target
+vs random null is 0.59 [0.47–0.71]. Arnica is subalpine and so is much of the
+random extent, so this test asks more of the graded score within the band
+than the congener test does. With 22 sites it cannot confirm that the model
+ranks *within* subalpine ground better than chance.
+
+#### Chanterelle: inconclusive, and that is the result
+
+Only 10 precise *Cantharellus* records exist in the extent, at 7 sites; 13 of
+25 are obscured. Against the false chanterelle (9 sites) per-site AUC is 0.44
+[0.11–0.76]. Against the null it is 0.57 [0.32–0.83]. No interval comes close
+to excluding 0.5, and no per-layer AUC does either. VRI is sampled at the
+evaluated points rather than downloaded for the whole extent (~317,000
+stands), so stand age here is VRI's own, without the cutblock override. Read
+the chanterelle profile as informed priors until there are records to test
+them.
+
+**Samples are small everywhere.** Per-site counts are the honest sample size.
+With under ~15 sites per group, percentile bootstrap intervals run narrow, so
+treat them as the *least* uncertainty there is.
 
 ### Other checks
 
@@ -312,7 +358,8 @@ Drive times against known road distances from Rossland:
 
 Slope and aspect are pinned by unit tests against synthetic planes on nine
 bearings. `pytest` covers the membership curves, the terrain math and the
-least-cost path attribution (42 tests).
+least-cost path attribution, VRI forest scoring, config
+loading and the validation statistics (82 tests).
 
 ```bash
 pytest
