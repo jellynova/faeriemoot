@@ -1,0 +1,137 @@
+{
+  "$comment": "Target profile for a dry-site conifer. Rocky Mountain juniper is the juniper of the interior: a tree of hot rocky slopes, benches and bluffs, not the creeping alpine J. communis. Scored spectrally as open, dry, south-facing ground with a low NDVI floor, since it grows out of rock.",
+  "id": "juniperus_scopulorum",
+  "common_name": "Rocky Mountain juniper",
+  "scientific_name": "Juniperus scopulorum",
+  "habitat_model": "spectral",
+  "habitat_note": "Dry rocky slopes, benches, bluffs, open grassland and the fringes of open forest, low to mid elevation. Wants heat, drainage and light; it grows out of thin soil and rock where little else will, so it is scored as strongly open, steep-tolerant, south-facing ground with a low vegetation floor.",
+  "folk_magic": {
+    "folk_names": [
+      "Rocky Mountain juniper",
+      "western juniper",
+      "mountain red cedar",
+      "cedar"
+    ],
+    "traditions": [
+      "Indigenous nations of the Plateau, Plains and Southwest",
+      "European folk tradition (juniper lore, principally Juniperus communis)"
+    ],
+    "associations": [
+      {
+        "theme": "purification",
+        "note": "Juniper smoke is one of the classic purifying smudges: burned to cleanse a person, a home or a space, and to drive sickness and bad influence out of it. Among many nations the smoke was used after illness or death and before ceremony, and the plant's purifying role is the best-attested of its uses.",
+        "origin": "Indigenous nations of the Plateau, Plains and Southwest; juniper smudging is recorded across the ethnographic literature and is still practised."
+      },
+      {
+        "theme": "protection",
+        "note": "Carried, hung at doorways and burned as a protective plant against harm and malevolent influence, and used to protect the home and those in it. In Europe the related common juniper carried the same protective role, burned to keep evil from the household and woven into charms for people and livestock.",
+        "origin": "Indigenous North American protective use, and European tradition for Juniperus communis, the juniper of European folk magic."
+      },
+      {
+        "theme": "banishing",
+        "note": "Burned to drive out malevolent influence and to purify after a death, and in some traditions used specifically to expel rather than merely to cleanse. Juniper's purification and banishing uses overlap heavily, as they do for the other smoke herbs in this set.",
+        "origin": "Indigenous North American ceremonial use; European juniper was also burned to banish evil and protect against witchcraft."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "Juniper berries and especially juniper oil are not harmless: the oil is a kidney irritant, is traditionally avoided in pregnancy because it can stimulate the uterus, and should not be taken internally over any period or by anyone with kidney disease. Burning the wood for smudge is a different act from ingesting it, but the smoke is still an irritant to breathe in quantity. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Moerman, D., Native American Ethnobotany - Indigenous use of Juniperus species, including the ceremonial and medicinal records.",
+      "Turner, N. J. - Plateau and interior BC use of juniper.",
+      "European folk tradition for Juniperus communis, the juniper of the European protective and banishing charms."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Aspect is given the strongest weight of any species in this set. For a juniper of hot rock, aspect is close to the binding variable: south- and west-facing rock holds the heat it needs, and north-facing ground at the same elevation does not.",
+    "weights": {
+      "terrain": 0.35,
+      "vegetation": 0.30,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.45,
+      "slope": 0.25,
+      "aspect": 0.30
+    }
+  },
+  "observations": {
+    "taxon_name": "Juniperus scopulorum",
+    "genus_fallback": "Juniperus",
+    "$comment": "76 research-grade records in the AOI. Common juniper (J. communis, 50 records) is down-weighted: it is a creeping plant of higher, moister and more northerly ground, so its records would pull the ranking off the hot rocky slopes this profile is after.",
+    "congeners_downweight": [
+      "Juniperus communis"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 900,
+    "months": [
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Low to mid elevation. Juniper is a valley and lower-slope tree here, reaching up the dry rocky fringes rather than into the wet montane forest.",
+      "hard_min": 250,
+      "optimal_min": 400,
+      "optimal_max": 1200,
+      "hard_max": 1600
+    },
+    "slope_deg": {
+      "$comment": "Steep ground is not a problem - juniper grows on bluffs and rock faces - so the hard ceiling is well above the other species' and the optimal band starts above flat.",
+      "optimal_min": 5,
+      "optimal_max": 35,
+      "hard_max": 55
+    },
+    "aspect": {
+      "$comment": "South to southwest, the hot dry side, with a fairly tight tolerance.",
+      "optimal_bearing_deg": 200.0,
+      "tolerance_deg": 80.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "$comment": "The lowest floor in the set. Juniper grows out of rock and thin soil, so the vegetation signal at a genuine site can be weak; a higher floor would score its best habitat as bare ground.",
+      "hard_min": 0.2,
+      "optimal_min": 0.32,
+      "optimal_max": 0.8
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "$comment": "Bare ground scores highest of any profile here: rock outcrop is juniper habitat, not an absence of vegetation.",
+      "meadow": 1.0,
+      "open_forest": 0.6,
+      "closed_forest": 0.1,
+      "bare": 0.2
+    },
+    "logging": {
+      "$comment": "Juniper is not a cutblock species; a harvested block is not its habitat, but the penalty is mild because the rocky ground it does occupy is rarely logged in the first place.",
+      "penalty": 0.85,
+      "recovery_years": 40
+    }
+  },
+  "validation": {
+    "$comment": "Read by scripts/validate.py. Common juniper is the contrast: the same genus, the same region and the same observers, but a creeping plant of higher and moister ground. Beating it would mean the model is tracking the hot rocky habitat rather than 'somewhere a juniper was recorded'.",
+    "target": "Juniperus scopulorum",
+    "contrast": "Juniperus communis",
+    "contrast_label": "creeping high-site congener",
+    "query_taxa": ["Juniperus"],
+    "config": "config/pipeline.validation.json"
+  },
+  "imagery_window_override": null
+}
