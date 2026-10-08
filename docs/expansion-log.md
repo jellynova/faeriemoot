@@ -240,6 +240,52 @@ Design decisions worth recording:
 | 2 | `folk_magic` schema + validation + manifest export + UI panel | done |
 | 3 | `riparian` habitat model (new stage) | done |
 | 4 | New species profiles, one commit each | done (15) |
-| 5 | README + docs for the new models and data | in progress |
+| 5 | README + docs for the new models and data | done |
 
 See the commit history for the per-species steps; each commit runs the suite.
+
+## What shipped
+
+* **15 new species profiles** on top of the two that existed, 17 in total, each
+  with a habitat model, a folk-magic block and a safety note.
+* **A third habitat model** (`riparian`) with its own stage, plus the
+  generalisations the new species needed: the `host_trees` model now serves
+  trees and lichens as well as fungi, the scoring stage dispatches all three
+  models through one table, and profiles can relabel the habitat rows.
+* **The `folk_magic` schema**, validated at config load, carried in the
+  manifest, and rendered on the site popup and in a sidebar panel.
+* **365 tests**, up from 82: the new suites cover the folk-magic schema, the
+  riparian stage (including a synthetic end-to-end run), and a structural check
+  of every profile.
+
+Verified beyond the suite:
+
+* The **full pipeline ran end to end** for devil's club - a riparian species,
+  which is the model with the newest code path - in 243 s, producing 187 ranked
+  sites, 7 raster overlays including the riparian class and water-distance
+  layers, and a manifest carrying the folk-magic block.
+* The **map UI was driven in a real browser** against that build: the sidebar
+  panel and the popup both render the folklore content, and the riparian layers
+  appear in the toggle list. That check found a genuine bug - the popup had
+  grown past 1000 px and its top ran off the map - which is fixed and
+  re-measured.
+* The **original spectral path was re-run** for arnica: 188 sites and 14
+  flagged, matching the figures already in the README, so the manifest and
+  dispatch changes did not move the original target.
+
+## Honest limits
+
+* **Only two new profiles carry a `validation` block** (juniper and elderberry,
+  both with a congener that shares the collectors but not the habitat). The
+  rest have no defensible contrast taxon in this region, and
+  `scripts/validate.py` reports "nothing to validate against" rather than
+  inventing a test. The new profiles are expert priors in the same sense the
+  chanterelle's were.
+* **The folk-magic associations are documentary, not exhaustive.** Each profile
+  carries the associations the named traditions support, with the origin
+  stated; a plant used in a dozen regional traditions has a dozen more entries
+  than one profile can hold. Where the record is thin, the profile says so
+  instead of padding it.
+* **Nothing here is a field guide.** The safety notes are hazard summaries for
+  someone reading the folklore, not identification or dosage, and several of
+  these plants are genuinely dangerous to confuse with something else.
