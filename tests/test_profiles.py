@@ -5,6 +5,7 @@ moment it is added - a typo'd key or an inverted band fails here rather than
 an hour into a pipeline run.
 """
 
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -24,7 +25,7 @@ def cfg(request):
 
 def _ordered(*vals):
     vals = [v for v in vals if v is not None]
-    return all(a <= b for a, b in zip(vals, vals[1:], strict=False))
+    return all(a <= b for a, b in pairwise(vals))
 
 
 def test_id_matches_filename(cfg):

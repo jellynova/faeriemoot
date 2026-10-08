@@ -1,0 +1,92 @@
+{
+  "$comment": "Target profile for yarrow. A sun-loving generalist of open ground, so it uses the spectral (meadow) model like arnica, with a much wider elevation band and no subalpine bias. Bands are set from where research-grade Kootenay records sit on the DEM (see docs/species-selection.md) widened by the published range.",
+  "id": "achillea_millefolium",
+  "common_name": "Yarrow",
+  "scientific_name": "Achillea millefolium",
+  "habitat_model": "spectral",
+  "habitat_note": "Open, sunny ground from valley grassland and roadsides to subalpine and alpine meadows: dry to moist, often on thin or disturbed soils. Common in open forest gaps but not under closed canopy. Native A. millefolium (vars. borealis / occidentalis) is the plant here; it is a common colonist of roadsides and cutblocks, so logged ground is not penalised.",
+  "weights_override": {
+    "weights": {
+      "terrain": 0.25,
+      "vegetation": 0.35,
+      "access": 0.20,
+      "observations": 0.20
+    },
+    "terrain_subweights": {
+      "$comment": "Elevation is nearly uninformative for a plant found from 450 m to the alpine, so most of the terrain weight is on slope and a gentle sunny-aspect preference.",
+      "elevation": 0.25,
+      "slope": 0.35,
+      "aspect": 0.40
+    }
+  },
+  "observations": {
+    "taxon_name": "Achillea millefolium",
+    "genus_fallback": "Achillea",
+    "$comment": "79 research-grade records in the AOI, 402 across the Kootenays - enough for the boost to carry real signal. iNaturalist treats A. millefolium as a complex, and records filed under a variety match the target by name prefix. Sneezewort (A. ptarmica) is a rare garden escape of wet ground and is down-weighted.",
+    "congeners_downweight": [
+      "Achillea ptarmica"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 1000,
+    "months": [5, 6, 7, 8, 9],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Records run 475-2135 m (p05-p95). The lower bound sits below the valley floor so only the upper side bites.",
+      "hard_min": 300,
+      "optimal_min": 420,
+      "optimal_max": 2150,
+      "hard_max": 2600
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 30,
+      "hard_max": 45
+    },
+    "aspect": {
+      "$comment": "A broad sun preference (SSW, +-80 deg full credit), not a filter: yarrow grows on every aspect in the open, but most abundantly on warm, dry ones.",
+      "optimal_bearing_deg": 202.5,
+      "tolerance_deg": 80.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "$comment": "NDMI closure calibration is a property of the sensor and the region, not the species, so the ndmi and texture blocks are arnica's unchanged.",
+    "ndvi": {
+      "$comment": "Lower floor than arnica: yarrow is common on dry grassland and gravelly roadsides that never green up past 0.35.",
+      "hard_min": 0.2,
+      "optimal_min": 0.35,
+      "optimal_max": 0.85
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "meadow": 1.0,
+      "open_forest": 0.6,
+      "closed_forest": 0.05,
+      "bare": 0.1
+    },
+    "logging": {
+      "$comment": "Neutral (1.0): yarrow is a regular early colonist of cutblocks and landings, so unlike arnica a regenerating block is real habitat, not a false positive.",
+      "penalty": 1.0,
+      "recovery_years": 45
+    }
+  },
+  "validation": {
+    "$comment": "Heart-leaved arnica is a forest-understory plant recorded by the same people on the same trails. Beating it means the model tracks openness, not access.",
+    "target": "Achillea millefolium",
+    "contrast": "Arnica cordifolia",
+    "contrast_label": "forest-understory forb",
+    "query_taxa": ["Achillea millefolium", "Arnica cordifolia"],
+    "config": "config/pipeline.validation.json"
+  },
+  "imagery_window_override": null
+}
