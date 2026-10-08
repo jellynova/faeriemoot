@@ -1,0 +1,123 @@
+{
+  "$comment": "Target profile for a thicket-forming shrub of open forest and edges. Rosa acicularis has almost no species-level records in this AOI (1), so the observation layer leans on the genus query with the other local roses down-weighted - which is what genus_fallback and congeners_downweight exist for.",
+  "id": "rosa_acicularis",
+  "common_name": "Prickly rose",
+  "scientific_name": "Rosa acicularis",
+  "habitat_model": "spectral",
+  "habitat_note": "Open forest, thickets, forest edges, clearings and rocky slopes, valley bottom to subalpine. A shade-tolerant shrub that flowers best with light, so it is scored as open-to-semi-open forest rather than as either meadow or closed canopy - the openness continuum handles it better than a binary cut.",
+  "folk_magic": {
+    "folk_names": [
+      "prickly rose",
+      "Arctic rose",
+      "wild rose"
+    ],
+    "traditions": [
+      "European folk magic and herbalism (rose lore)",
+      "Indigenous North American nations (wild rose food and medicine)"
+    ],
+    "associations": [
+      {
+        "theme": "love",
+        "note": "The rose is the pre-eminent love plant of European folk practice: petals and hips worked into love charms and love-drawing sachets, rose water used in love workings, and the flower itself a token with a whole language of meanings attached to it. The wild rose inherits the association in folk practice, even though the lore grew up around the garden rose.",
+        "origin": "European folk tradition; the love-charm and rose-language uses are recorded throughout the folk-magic literature."
+      },
+      {
+        "theme": "protection",
+        "note": "Rose thorns made the plant a boundary and warding herb: planted at the edge of a property to keep harm out, and thorns or hips carried in protective charms. The logic is the same as for other thorn plants - the thorn does the warding.",
+        "origin": "European folk practice for the boundary and protective uses; the thorn as a ward is a widespread motif."
+      },
+      {
+        "theme": "healing",
+        "note": "Rose hips are the practical side of the plant's reputation: exceptionally high in vitamin C, gathered as food and as a winter medicine, and the petals used in soothing infusions and waters. Indigenous nations across the region gathered wild rose hips and used the inner bark and petals medicinally.",
+        "origin": "European herbalism for the hip and petal preparations; Indigenous North American nations for the food and medicinal use of wild roses."
+      }
+    ],
+    "safety": {
+      "level": "none",
+      "note": "No known hazard. Rose hips are a food and a well-known source of vitamin C; the petals are edible. The thorns are the only thing to watch for, and the one genuine caution is that the hairy seeds inside the hips are an irritant if they are not strained out of a preparation. This note is a hazard summary, not a recipe."
+    },
+    "sources": [
+      "European folk-magic compilations for the love, thorn-warding and rose-language traditions.",
+      "Turner, N. J., and Moerman, D. - Indigenous North American use of wild rose hips, petals and bark."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Aspect gets only a light weight: the rose is a generalist of edges and open stands, so aspect shades the ranking without driving it.",
+    "weights": {
+      "terrain": 0.30,
+      "vegetation": 0.35,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.6,
+      "slope": 0.25,
+      "aspect": 0.15
+    }
+  },
+  "observations": {
+    "taxon_name": "Rosa acicularis",
+    "genus_fallback": "Rosa",
+    "$comment": "Only 1 research-grade R. acicularis record in the AOI, so the genus query (23 records) does the work. Nootka rose (R. nutkana) and Woods' rose (R. woodsii) are down-weighted: both are real local roses, but their habitats differ enough that boosting from their records would blur this profile's signal rather than sharpen it.",
+    "congeners_downweight": [
+      "Rosa nutkana",
+      "Rosa woodsii"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 900,
+    "months": [
+      6,
+      7,
+      8
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Wide - prickly rose runs from the valley up into the subalpine, which is why it is the rose chosen for this profile: it is the one that belongs in the high open forest.",
+      "hard_min": 250,
+      "optimal_min": 400,
+      "optimal_max": 1500,
+      "hard_max": 2000
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 30,
+      "hard_max": 45
+    },
+    "aspect": {
+      "optimal_bearing_deg": 190.0,
+      "tolerance_deg": 110.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "hard_min": 0.3,
+      "optimal_min": 0.45,
+      "optimal_max": 0.88
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "$comment": "The only profile here where open forest scores above meadow: a rose thicket is a thing of forest edges and gaps, and a treeless meadow is not its usual ground.",
+      "meadow": 0.9,
+      "open_forest": 0.95,
+      "closed_forest": 0.35,
+      "bare": 0.05
+    },
+    "logging": {
+      "$comment": "Roses do colonise cutblocks, so the penalty is mild and fades - but they are not fire-followers to the extent fireweed is.",
+      "penalty": 0.75,
+      "recovery_years": 25
+    }
+  },
+  "imagery_window_override": null
+}
