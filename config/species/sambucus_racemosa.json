@@ -1,0 +1,138 @@
+{
+  "$comment": "Target profile for a moist-site shrub. Red elderberry wants damp ground at the edge of forest - stream banks, avalanche runouts, clearings and seepage slopes - so habitat_model 'riparian' scores it, with a wider distance band than devil's club because it is a thicket-edge plant rather than a bank-hugger. Safety note is important: red elderberry is considerably more toxic than the European black elder its folk lore comes from.",
+  "id": "sambucus_racemosa",
+  "common_name": "Red elderberry",
+  "scientific_name": "Sambucus racemosa",
+  "habitat_model": "riparian",
+  "habitat_note": "Damp forest edges, stream and seepage banks, avalanche tracks, clearcut margins and moist thickets, valley bottom to lower subalpine. A shrub of wet ground that needs light, so it sits at the boundary between water and opening rather than deep in either. Scored on distance to water times flat-to-gentle ground.",
+  "folk_magic": {
+    "$comment": "The folk lore belongs to the European elder, Sambucus nigra; the North American red elderberry is its close relative and inherits the associations in popular practice, but not the edibility. That distinction is stated rather than blurred.",
+    "folk_names": [
+      "red elderberry",
+      "red-berried elder",
+      "elderberry",
+      "stinking elder"
+    ],
+    "traditions": [
+      "European folk magic (elder lore, principally Sambucus nigra)",
+      "Indigenous North American nations (red elderberry food and medicine, with care)"
+    ],
+    "associations": [
+      {
+        "theme": "protection",
+        "note": "The elder was the great protective tree of European household magic: planted by the house to keep harm out, its presence a blessing on the home, and cutting one down without leave considered deeply unlucky. Crosses of elder were hung at doors and windows and in byres to ward off evil, and the tree was believed to be inhabited by a guardian spirit - the elder mother - who had to be asked before wood was taken.",
+        "origin": "European folk tradition, especially the British Isles, Scandinavia and Germany, where the elder mother (Hylde-Moer) is a well-documented household spirit."
+      },
+      {
+        "theme": "banishing",
+        "note": "Elder was used to drive out evil spirits and illness, in charms against witchcraft and in protection of livestock, and the wood was carved into charms for that purpose. Its protective and banishing roles were two sides of the same practice.",
+        "origin": "European folk magic; the witch- and illness-banishing uses are recorded across the British, German and Scandinavian record."
+      },
+      {
+        "theme": "death",
+        "note": "The elder carried a strong association with death and the underworld: it was planted on graves, its wood was avoided for cradles because of the belief that it would harm a child, and the elder mother was in some accounts a spirit of the dead. This is the darker half of the tree's reputation and is why it was treated with such caution.",
+        "origin": "European and Scandinavian folk belief; the grave-planting and cradle superstitions are widely recorded."
+      },
+      {
+        "theme": "prosperity",
+        "note": "Elder was called the medicine chest of the country people and the poor man's pharmacy, and keeping one by the house was believed to bring luck and plenty rather than merely medicine. Its flowers and fruit were used for wine, cordial and preserves, so the prosperity association had a practical basis as well as a magical one.",
+        "origin": "European rural tradition; the household-pharmacy and luck-bringing reputation is recorded throughout the folk-herb literature."
+      }
+    ],
+    "safety": {
+      "level": "toxic",
+      "note": "This is the safety note that matters most in this set. Red elderberry is substantially more toxic than European black elder: the bark, roots, stems, leaves and seeds contain cyanogenic glycosides, and raw berries cause nausea, vomiting and diarrhoea. Berries must be cooked and the seeds strained out, and even then the plant is not one to experiment with; the roots and bark should not be used at all. Do not eat the berries raw, and do not assume the European elder recipes transfer. This note is a hazard summary, not a recipe."
+    },
+    "sources": [
+      "European folk-magic compilations and the Scandinavian and British folklore record for the elder mother and elder superstitions.",
+      "Moerman, D., Native American Ethnobotany, and Turner, N. J. - Indigenous use of red elderberry, including the caution required in preparing it.",
+      "Standard toxicology references for the cyanogenic glycosides in Sambucus."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Riparian habitat, terrain supporting, aspect zero-weighted.",
+    "weights": {
+      "terrain": 0.25,
+      "riparian": 0.45,
+      "access": 0.15,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.75,
+      "slope": 0.25,
+      "aspect": 0.0
+    }
+  },
+  "observations": {
+    "taxon_name": "Sambucus racemosa",
+    "genus_fallback": "Sambucus",
+    "$comment": "14 research-grade S. racemosa records in the AOI. Blue elderberry (S. cerulea, 52 records) is down-weighted rather than treated as a match: it is a drier valley-bottom and open-slope shrub, so boosting wet sites from its records would pull the ranking the wrong way.",
+    "congeners_downweight": [
+      "Sambucus cerulea"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 900,
+    "months": [
+      6,
+      7,
+      8
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Valley bottom to lower subalpine; it reaches higher than the other two riparian species because it follows avalanche runouts and wet gullies upslope.",
+      "hard_min": 300,
+      "optimal_min": 400,
+      "optimal_max": 1200,
+      "hard_max": 1700
+    },
+    "slope_deg": {
+      "$comment": "Gentler than nettle's allowance - it is a shrub of benches and runout toes, not of steep ground.",
+      "optimal_min": 0,
+      "optimal_max": 18,
+      "hard_max": 35
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "riparian": {
+    "distance_m": {
+      "$comment": "A thicket-edge plant rather than a bank-hugger, so the full-credit band is wider and the cut-off further out than devil's club's.",
+      "optimal_max": 120,
+      "hard_max": 450
+    },
+    "slope_deg": {
+      "optimal_max": 12,
+      "hard_max": 32
+    },
+    "stream_order_credit": {
+      "$comment": "Follows wet ground generally, including small gullies and runouts, so the first-order credit is meaningful.",
+      "knots": [
+        [1, 0.2],
+        [3, 0.7],
+        [5, 1.0]
+      ]
+    },
+    "water_type_credit": {
+      "lake_river": 1.0,
+      "wetland": 0.8
+    },
+    "hard_filters": {
+      "enforce_water_max": true
+    }
+  },
+  "validation": {
+    "$comment": "Read by scripts/validate.py. Blue elderberry is the contrast: the same genus, the same region and the same observers, but a drier, more open habitat, so beating it would mean the model is tracking wet ground rather than 'somewhere an elderberry was recorded'.",
+    "target": "Sambucus racemosa",
+    "contrast": "Sambucus cerulea",
+    "contrast_label": "dry-site congener",
+    "query_taxa": ["Sambucus"],
+    "config": "config/pipeline.validation.json"
+  },
+  "imagery_window_override": null
+}
