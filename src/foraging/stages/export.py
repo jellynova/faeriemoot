@@ -25,7 +25,7 @@ from rasterio.warp import reproject
 from ..config import Config
 from ..grid import Grid
 from ..sources.bcdata import aoi_bbox_albers, fetch_layer
-from .forest import CLASS_NAMES as FOREST_CLASS_NAMES
+from .forest import class_names as forest_class_names
 from .vegetation import CLASS_NAMES as VEG_CLASS_NAMES
 
 # Compact colour ramps as (stop, r, g, b). Hand-rolled to avoid a matplotlib
@@ -37,6 +37,7 @@ RAMPS = {
                   (0.8, 160, 130, 110), (1.0, 250, 250, 252)],
     "slope": [(0.0, 255, 255, 204), (0.4, 253, 176, 74), (0.7, 227, 90, 60), (1.0, 128, 0, 38)],
     "ndvi": [(0.0, 140, 100, 60), (0.4, 220, 210, 140), (0.7, 90, 170, 70), (1.0, 10, 80, 30)],
+    "water": [(0.0, 245, 235, 210), (0.4, 160, 200, 200), (0.7, 70, 140, 190), (1.0, 20, 60, 130)],
     "host": [(0.0, 245, 240, 225), (0.3, 200, 190, 110), (0.6, 120, 150, 60), (1.0, 30, 80, 40)],
 }
 
@@ -189,12 +190,18 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
             _categorical_overlay(web_dir / "forest.png", fclass, grid, bounds, FOREST_COLOURS)
             layers["forest"] = {"label": "Forest / host trees", "file": "forest.png",
                                 "type": "categorical",
-                                "legend": _legend(FOREST_COLOURS, FOREST_CLASS_NAMES)}
+                                "legend": _legend(FOREST_COLOURS,
+                                                  forest_class_names(cfg.species.get("forest")))}
             log("    forest.png")
-        add_continuous("host_fraction", "host_fraction", RAMPS["host"], "Host-tree share",
-                       vmin=0.0, vmax=1.0)
+        host_term = (cfg.species.get("forest") or {}).get("host_label") or "host-tree"
+        add_continuous("host_fraction", "host_fraction", RAMPS["host"],
+                       f"{host_term[0].upper()}{host_term[1:]} share", vmin=0.0, vmax=1.0)
         add_continuous("stand_age", "stand_age", RAMPS["ndvi"], "Stand age (years)",
                        vmin=0.0, vmax=200.0)
+
+    if "moisture" in cfg.optional_layers:
+        add_continuous("moisture", "score_moisture", RAMPS["water"], "Moisture credit",
+                       vmin=0.0, vmax=1.0)
 
     logging_age = _safe_read(cfg, "logging_age")
     if logging_age is not None and np.isfinite(logging_age).any():
@@ -237,7 +244,7 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
 # Layers that only ever exist per species. These are never read from the
 # shared directory, where a build from before species were separated may have
 # left a copy made with another profile's thresholds.
-SPECIES_LAYERS = {"score_total", "veg_class", "forest_class", "host_fraction"}
+SPECIES_LAYERS = {"score_total", "veg_class", "forest_class", "host_fraction", "score_moisture"}
 
 
 def _safe_read(cfg: Config, name: str):

@@ -21,7 +21,7 @@ from shapely.geometry import Point
 from ..config import Config
 from ..curves import weighted_mean
 from ..grid import Grid
-from .forest import CLASS_NAMES as FOREST_CLASS_NAMES
+from .forest import class_names as forest_class_names
 from .forest import leading_label
 from .landstatus import CLASS_KEYS, CLASS_LABELS
 from .vegetation import CLASS_NAMES as VEG_CLASS_NAMES
@@ -67,6 +67,8 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
         "access": _read(cfg, "score_access"),
         "observations": _read_component(cfg, "score_observations"),
     }
+    for key in cfg.optional_layers:
+        components[key] = _read_component(cfg, f"score_{key}")
     missing = [k for k, v in components.items() if v is None]
     if missing:
         raise RuntimeError(f"missing stage output(s): {', '.join(missing)} - run those stages first")
@@ -74,9 +76,10 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     weights = cfg.weights["weights"]
     score = weighted_mean(components, weights).astype("float32")
 
-    # Terrain and the habitat layer carry the hard filters; a cell rejected by
-    # either is not a candidate at all, regardless of how it scores elsewhere.
-    for key in ("terrain", habitat):
+    # Terrain, the habitat layer and any optional layer carry the hard filters;
+    # a cell rejected by any of them is not a candidate at all, regardless of
+    # how it scores elsewhere.
+    for key in ("terrain", habitat, *cfg.optional_layers):
         score = np.where(np.isfinite(components[key]), score, np.nan)
 
     excluded = _read(cfg, "land_excluded")
@@ -157,7 +160,9 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         "hike_km": _read(cfg, "hike_km"),
         "land_tenure": _read(cfg, "land_tenure"),
         "logging_age": _read(cfg, "logging_age"),
+        "water_distance": _read(cfg, "water_distance"),
     }
+    forest_names = forest_class_names(cfg.species.get("forest"))
 
     idx = np.arange(1, n + 1)
     sizes = ndimage.sum_labels(np.ones_like(score, dtype="float32"), labels, idx)
@@ -200,7 +205,7 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         tenure_key = CLASS_KEYS.get(tenure_code, "crown_land")
         aspect = at("aspect")
         if habitat == "forest":
-            habitat_class = FOREST_CLASS_NAMES.get(int(at("forest_class", 0) or 0), "no inventory")
+            habitat_class = forest_names.get(int(at("forest_class", 0) or 0), "no inventory")
         else:
             habitat_class = VEG_CLASS_NAMES.get(int(at("veg_class", 0) or 0), "unknown")
         lead = at("leading_species", 0)
@@ -233,6 +238,8 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "score_habitat": _round_at(components[habitat], r, c),
             "score_access": _round_at(components["access"], r, c),
             "score_observations": _round_at(components["observations"], r, c),
+            "score_moisture": _round_at(components.get("moisture"), r, c),
+            "water_distance_m": None if at("water_distance") is None else round(float(at("water_distance"))),
             "_x": x,
             "_y": y,
         })
@@ -366,8 +373,14 @@ def _write_manifest(cfg, gdf, grid) -> None:
             "scientific_name": cfg.species.get("scientific_name"),
             "habitat_note": cfg.species.get("habitat_note"),
             "habitat_model": cfg.habitat_model,
-            "habitat_label": "Host trees" if cfg.habitat_layer == "forest" else "Vegetation",
+            "habitat_label": cfg.species.get("habitat_label")
+                             or ("Host trees" if cfg.habitat_layer == "forest" else "Vegetation"),
             "season_months": cfg.species["observations"].get("months"),
+            "optional_layers": cfg.optional_layers,
+            # The popup words its cutblock note differently for species that
+            # are not penalised on logged ground (fireweed thrives there).
+            "logging_penalised": cfg.habitat_layer == "forest" or float(
+                cfg.species.get("vegetation", {}).get("logging", {}).get("penalty", 1.0)) < 1.0,
         },
         "origin": cfg.pipeline["access"]["origin"],
         "weights": cfg.weights["weights"],

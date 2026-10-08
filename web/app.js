@@ -344,6 +344,7 @@
   function toCSV(feats) {
     var cols = ["rank", "score", "lat", "lon", "elevation_m", "aspect_compass", "slope_deg",
                 "veg_class", "leading_species", "host_fraction", "stand_age_years",
+                "water_distance_m",
                 "years_since_logging", "area_ha", "drive_minutes", "hike_km",
                 "hike_minutes", "land_status_label", "inat_nearby"];
     var rows = feats.map(function (f) {
@@ -389,6 +390,9 @@
         ? "<dt>Logged</dt><dd>" + p.years_since_logging + " yr ago</dd>"
         : "") +
       (hostModel ? "" : "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>") +
+      (p.water_distance_m !== undefined && p.water_distance_m !== null
+        ? "<dt>Nearest water</dt><dd>" + fmt(p.water_distance_m, 0, " m") + "</dd>"
+        : "") +
       "<dt>Patch area</dt><dd>" + fmt(p.area_ha, 1, " ha") + "</dd>" +
       "<dt>Drive</dt><dd>" + minutesLabel(p.drive_minutes) + "</dd>" +
       "<dt>Hike</dt><dd>" + fmt(p.hike_km, 2, " km") + " / " + minutesLabel(p.hike_minutes) + "</dd>" +
@@ -400,12 +404,18 @@
         bar(habitatLabel, habitatScore) +
         bar("Access", p.score_access) +
         bar("Observations", p.score_observations) +
+        (p.score_moisture !== undefined && p.score_moisture !== null
+          ? bar("Moisture", p.score_moisture) : "") +
       "</div>";
 
+    var penalised = (current.manifest.species || {}).logging_penalised !== false;
     if (p.on_cutblock && p.years_since_logging !== null && p.years_since_logging < 45) {
       html += '<div class="flagbox"><strong>Regenerating cutblock</strong><br>' +
               "Logged " + p.years_since_logging + " years ago. " +
-              (hostModel
+              (!penalised
+                ? "This species colonises disturbed and logged ground, so the " +
+                  "score is not penalised for it."
+                : hostModel
                 ? "Harvest removes the host trees; the stand-age credit already " +
                   "accounts for how long they take to come back."
                 : "Open ground here is harvest regrowth, not natural meadow - the " +
@@ -552,6 +562,7 @@
         ? "linear-gradient(90deg,#440154,#3b528b,#21918c,#5ec962,#fde725)"
         : activeLegend === "slope" ? "linear-gradient(90deg,#ffffcc,#fdb04a,#e35a3c,#800026)"
         : activeLegend === "ndvi" ? "linear-gradient(90deg,#8c643c,#dcd28c,#5aaa46,#0a501e)"
+        : activeLegend === "moisture" ? "linear-gradient(90deg,#f5ebd2,#a0c8c8,#468cbe,#143c82)"
         : "linear-gradient(90deg,#3c6e46,#96af6e,#bea578,#a0826e,#fafafc)";
       html += '<div class="bar" style="background:' + grad + '"></div>' +
               '<div class="ends"><span>' + fmt(spec.min, 2) + "</span><span>" + fmt(spec.max, 2) + "</span></div>";

@@ -129,13 +129,17 @@ def candidate_surfaces(cfg):
 
     surfaces = {}
     hab_path = cfg.species_interim(f"score_{habitat}.tif")
+    # Optional layers (moisture) describe habitat too, not access or sightings,
+    # so they belong in the habitat-only surface.
+    extras = {k: Grid.read(cfg.species_interim(f"score_{k}.tif"))[0] for k in cfg.optional_layers
+              if cfg.species_interim(f"score_{k}.tif").exists()}
     if hab_path.exists():
         hab = Grid.read(hab_path)[0]
         w = cfg.weights["weights"]
-        combined = weighted_mean({"terrain": terrain, habitat: hab},
-                                 {"terrain": w["terrain"], habitat: w[habitat]})
-        surfaces[f"habitat score (terrain + {habitat})"] = np.where(
-            np.isfinite(terrain) & np.isfinite(hab), combined, np.nan)
+        parts = {"terrain": terrain, habitat: hab, **extras}
+        combined = weighted_mean(parts, {k: w[k] for k in parts})
+        ok = np.logical_and.reduce([np.isfinite(v) for v in parts.values()])
+        surfaces[f"habitat score ({' + '.join(parts)})"] = np.where(ok, combined, np.nan)
     surfaces["terrain"] = terrain
     surfaces["  elevation fit"] = trapezoid(elev, e["hard_min"], e["optimal_min"], e["optimal_max"], e["hard_max"])
     surfaces["  slope fit"] = trapezoid(slope, None, s["optimal_min"], s["optimal_max"], s["hard_max"])
@@ -143,6 +147,8 @@ def candidate_surfaces(cfg):
                                             a["tolerance_deg"], a["flat_slope_deg"])
     if hab_path.exists():
         surfaces[f"{habitat} layer"] = hab
+    for k, arr in extras.items():
+        surfaces[f"{k} layer"] = arr
     return surfaces, elev, grid
 
 
@@ -214,7 +220,8 @@ def main(argv=None) -> int:
         return 0
     if not have_rasters:
         print(f"\n! no habitat rasters for {cfg.run_id}; run `forage run -c {vcfg['config']} "
-              f"--species {args.species} --only terrain,{cfg.habitat_layer}` first")
+              f"--species {args.species} --only "
+              f"{','.join(['terrain', cfg.habitat_layer, *cfg.optional_layers])}` first")
         return 1
 
     # ---- surfaces, sampled at a common record set --------------------------

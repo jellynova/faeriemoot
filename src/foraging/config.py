@@ -37,6 +37,10 @@ def load_json(path: Path) -> dict:
 # forest inventory (right for a fungus, whose own signature is invisible).
 HABITAT_LAYERS = {"spectral": "vegetation", "host_trees": "forest"}
 
+# Optional score components a profile switches on by carrying the named block.
+# Each has its own stage, which skips itself for profiles without the block.
+OPTIONAL_LAYERS = ("moisture",)
+
 # Only these weights sections may be overridden per species. Access and land
 # status are computed once per AOI and shared between species, so letting a
 # profile change access_subweights or legality would silently disagree with
@@ -103,6 +107,11 @@ class Config:
     def habitat_layer(self) -> str:
         """Score component that carries the habitat signal: 'vegetation' or 'forest'."""
         return HABITAT_LAYERS[self.habitat_model]
+
+    @property
+    def optional_layers(self) -> list[str]:
+        """Optional score components this profile carries, e.g. ``["moisture"]``."""
+        return [k for k in OPTIONAL_LAYERS if self.species.get(k)]
 
     @property
     def run_id(self) -> str:
@@ -189,6 +198,7 @@ def load_config(
     species = load_json(root / pipeline["species"])
     weights = load_json(root / pipeline["weights"])
     weights = _apply_weights_override(weights, species.get("weights_override"), species["id"])
+    _check_optional_weights(species, weights)
     aoi_path = root / pipeline["aoi"]
     aoi = gpd.read_file(aoi_path)
     if aoi.crs is None:
@@ -196,6 +206,23 @@ def load_config(
     aoi = aoi.to_crs("EPSG:4326")
 
     return Config(root=root, pipeline=pipeline, species=species, weights=weights, aoi=aoi, aoi_path=aoi_path)
+
+
+def _check_optional_weights(species: dict, weights: dict) -> None:
+    """An optional block and its weight must come together.
+
+    A ``moisture`` block with no ``moisture`` weight would be computed and then
+    silently ignored by the weighted mean; a weight with no block would be
+    renormalised away. Both are configuration mistakes worth failing on.
+    """
+    w = weights.get("weights", {})
+    for key in OPTIONAL_LAYERS:
+        has_block, has_weight = bool(species.get(key)), float(w.get(key, 0.0)) > 0
+        if has_block and not has_weight:
+            raise ValueError(f"species {species['id']}: has a '{key}' block but "
+                             f"weights_override.weights gives '{key}' no weight")
+        if has_weight and not has_block:
+            raise ValueError(f"species {species['id']}: weights '{key}' but has no '{key}' block")
 
 
 def _find_root(pipeline_path: Path) -> Path:
