@@ -1,0 +1,91 @@
+{
+  "$comment": "Target profile for fireweed. The one target here for which the clearcut problem runs the other way: fireweed is THE colonist of burns, cutblocks, avalanche tracks and road cuts, so the open, high-NDVI signature of a regenerating block is exactly right and is not penalised.",
+  "id": "chamaenerion_angustifolium",
+  "common_name": "Fireweed",
+  "scientific_name": "Chamaenerion angustifolium",
+  "habitat_model": "spectral",
+  "habitat_note": "Disturbed open ground at every elevation: burns, cutblocks 2-15 years after harvest, avalanche paths, road cuts and landings, and subalpine meadows. Shade-intolerant, so it fades as a block's canopy closes. Formerly Epilobium angustifolium / Chamerion angustifolium.",
+  "weights_override": {
+    "weights": {
+      "terrain": 0.20,
+      "vegetation": 0.40,
+      "access": 0.20,
+      "observations": 0.20
+    },
+    "terrain_subweights": {
+      "$comment": "Terrain says little about a plant that tracks disturbance, not landform; slope carries most of what there is (very steep ground is rock, not fireweed).",
+      "elevation": 0.3,
+      "slope": 0.5,
+      "aspect": 0.2
+    }
+  },
+  "observations": {
+    "taxon_name": "Chamaenerion angustifolium",
+    "genus_fallback": "Chamaenerion",
+    "$comment": "131 AOI records, 625 Kootenays: the best-recorded target in the set. Dwarf fireweed (C. latifolium) grows on river gravel bars and alpine scree, a different habitat, so it is down-weighted.",
+    "congeners_downweight": [
+      "Chamaenerion latifolium"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 1000,
+    "months": [6, 7, 8, 9],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Records run 523-2200 m (p05-p95).",
+      "hard_min": 300,
+      "optimal_min": 450,
+      "optimal_max": 2100,
+      "hard_max": 2500
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 32,
+      "hard_max": 45
+    },
+    "aspect": {
+      "$comment": "Faint south preference only; 62% of records are on south-to-west slopes, about what open ground in this AOI offers anyway.",
+      "optimal_bearing_deg": 180.0,
+      "tolerance_deg": 110.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "$comment": "Dense fireweed stands are lush; a sparse fresh burn is not yet a stand. Floor above yarrow's.",
+      "hard_min": 0.3,
+      "optimal_min": 0.5,
+      "optimal_max": 0.9
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "meadow": 1.0,
+      "open_forest": 0.55,
+      "closed_forest": 0.0,
+      "bare": 0.05
+    },
+    "logging": {
+      "$comment": "No penalty. A credit for young blocks would be the honest model, but the logging term only multiplies logged cells and cannot lift them above unlogged open ground; the openness credit already ranks young, open blocks highly, and closes them out as their canopy shuts.",
+      "penalty": 1.0,
+      "recovery_years": 45
+    }
+  },
+  "validation": {
+    "$comment": "Same contrast as yarrow: a closed-forest understory forb with shared collectors.",
+    "target": "Chamaenerion angustifolium",
+    "contrast": "Arnica cordifolia",
+    "contrast_label": "forest-understory forb",
+    "query_taxa": ["Chamaenerion angustifolium", "Arnica cordifolia"],
+    "config": "config/pipeline.validation.json"
+  },
+  "imagery_window_override": null
+}
