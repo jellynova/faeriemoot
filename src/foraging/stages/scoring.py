@@ -397,6 +397,9 @@ def _write_manifest(cfg, gdf, grid) -> None:
             "habitat_label": habitat_label_for(cfg),
             "season_months": cfg.species["observations"].get("months"),
             "optional_layers": cfg.optional_layers,
+            # The popup's stand-share row is worded from the same term the
+            # export uses for the raster label, so the two cannot disagree.
+            "host_label": (cfg.species.get("forest") or {}).get("host_label"),
             # The popup words its cutblock note differently for species that
             # are not penalised on logged ground (fireweed thrives there).
             "logging_penalised": cfg.habitat_layer == "forest" or float(

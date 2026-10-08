@@ -453,7 +453,7 @@
     var model = habitatModel();
     var rows = "";
     if (model === "host_trees") {
-      var hostLabel = ((current.manifest.species || {}).forest || {}).host_label;
+      var hostLabel = (current.manifest.species || {}).host_label;
       var shareLabel = hostLabel
         ? hostLabel.charAt(0).toUpperCase() + hostLabel.slice(1) + " share"
         : "Host share";

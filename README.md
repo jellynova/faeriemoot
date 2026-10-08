@@ -58,14 +58,16 @@ anonymous.
 
 Each 30 m cell in the area of interest is scored by four layers, then
 high-scoring cells are clustered into discrete sites and ranked. The habitat
-layer is one of three, chosen by the species profile's `habitat_model`.
+layer is one of two, chosen by the species profile's `habitat_model`; a profile
+may also switch on the optional **moisture** component, which adds a fifth
+layer rather than replacing one.
 
 | Layer | What it contributes | Source |
 |---|---|---|
 | **Terrain** | Elevation band, slope, aspect (per-species preference) | Copernicus GLO-30 DEM via Planetary Computer |
 | **Vegetation** (`spectral`) | Open meadow / open forest vs closed canopy or bare rock | Sentinel-2 L2A, seasonal composite |
 | **Forest** (`host_trees`) | Share of the host — or target — trees in the stand, stand age, crown closure | BC Vegetation Resources Inventory (VRI), rank-1 layer |
-| **Riparian** (`riparian`) | Distance to streams, lakes and wetlands, with streams weighted by order; flat ground | BC Freshwater Atlas (FWA) |
+| **Moisture** (optional, any model) | Distance to streams, lakes and wetlands, weighted by stream order, blended with topographic position (hollows and toe slopes) | BC Freshwater Atlas (FWA) + the DEM |
 | **Access** | Drive minutes from your origin + least-cost hike from the road | BC Digital Road Atlas, forest tenure roads, OSM trails |
 | **Observations** | Proximity boost from real sightings | iNaturalist research-grade records |
 | **Land status** | Tenure flag — *flagged, never silently down-ranked* | BC parks, ParcelMap BC, forest tenure |
@@ -76,7 +78,7 @@ can judge the trade-off yourself.
 ### Pipeline stages
 
 ```
-terrain → vegetation | forest | riparian → access → observations → landstatus → scoring → export
+terrain → vegetation | forest → [moisture] → access → observations → landstatus → scoring → export
 ```
 
 `vegetation` and `forest` are alternatives: each skips itself unless the
@@ -159,12 +161,18 @@ First decide what the target's habitat signal actually is:
   itself and every other code falls to `default_affinity: 0.0`; set
   `habitat_label` and `forest_labels.share` so the popup says "Cedar share"
   rather than "Host share".
-* **`"habitat_model": "riparian"`** (copy `oplopanax_horridus.json`) for a
-  moisture-obligate plant — one whose binding constraint is water rather than
-  greenness. Set the `riparian.distance_m` band, the `stream_order_credit`
-  knots (how much a headwater gully is worth against a mainstem) and the
-  `water_type_credit` for lakes and wetlands. This model downloads no Sentinel-2
-  imagery, so it is the cheapest of the three to run.
+* **A `moisture` block** (copy `oplopanax_horridus.json`) for a plant whose
+  constraint is water. This is *not* a habitat model — it is an extra score
+  component that sits alongside whichever model the profile uses, because water
+  composes with a vegetation or stand-composition signal rather than replacing
+  it. Set the `water_distance_m` band, the `tpi` window and thresholds (a
+  cell's elevation against its surroundings: negative is a hollow or toe slope,
+  where water collects whether or not a stream is mapped there), the `blend`
+  between them, and `min_stream_order` if only larger creeks should count.
+  `hard_max_m` turns proximity into a requirement by rejecting cells further
+  than that from water. The block and its weight must come together —
+  `load_config` fails on one without the other rather than computing a layer
+  that is then ignored.
 
 A profile's `weights_override` replaces the `weights` and `terrain_subweights`
 sections of `config/weights.json` for that species only. It cannot touch
@@ -298,19 +306,25 @@ catch them. A proximity boost around an obscured point boosts a random spot.
 Foragers obscure their finds: every golden-chanterelle record in the Kootenays
 is obscured.
 
-**A moisture-obligate plant is scored by its water, not its colour.** Devil's
-club, nettle and elderberry all want ground beside water on a flat valley floor,
-and NDVI cannot see that — a lush meadow and a lush stream bank are the same
-green. The riparian model reads distance to water from BC's Freshwater Atlas
-instead, with **streams weighted by order**, because a first-order gully that
-runs dry in August is not the same habitat as a fourth-order mainstem. Each cell
-takes the credit of the stream it is *nearest to*, so a seep two cells away beats
-a mainstem across the valley. Two things about the data are worth knowing: FWA's
-stream order 9 is not an order at all but the *areal* representation of a major
-river (the Columbia appears this way), so the credit table clamps at the top
-rather than reading 9 as an unknown; and wetlands are treated as habitat rather
-than as water to exclude, because a skunk-cabbage swamp is prime devil's-club
-ground. Only open lake and river water is masked out.
+**Water is a component, not a model.** Devil's club, nettle and elderberry all
+want ground beside water, and neither habitat model can see that: NDVI cannot
+tell a streamside thicket from an equally green dry slope, and VRI describes the
+overstory rather than the soil. So moisture is an optional *fifth layer* rather
+than a third habitat model — a profile keeps its vegetation or host-tree signal
+and adds water to it. Two signals go into it. **Distance to mapped water** from
+BC's Freshwater Atlas, with streams filtered by Strahler order, because a
+first-order gully that runs dry in August is not the same habitat as a
+fourth-order mainstem. And **topographic position** — a cell's elevation minus
+the mean within a window around it — because a hollow or a toe slope collects
+water whether or not a stream is drawn there, which is what a seepage plant
+follows. The profile sets the blend.
+
+For devil's club the two layers are doing different jobs, and the profile says
+so: the forest layer finds the *forest type* (cedar-led wet forest, used as an
+indicator — cedar forms arbuscular associations and hosts nothing, so this is
+not a host relationship) and the moisture component finds the wet patch within
+it. `forest.host_label` is what keeps the popup honest about that: it says
+"cedar-rich forest", not "host-rich forest".
 
 **Folk magic is content, not a signal.** The `folk_magic` block on each profile
 never touches the score. It is documentary information — folk names, the
@@ -554,8 +568,9 @@ Builds made before outputs were split by species sit directly under
 Leaflet, vendored locally so it works offline. Toggleable layers for
 suitability, elevation, slope, aspect, and then whichever habitat layers the
 species uses: NDVI and vegetation class (spectral targets), forest class,
-host-tree share and stand age (host-tree targets), or riparian class and
-distance to water (riparian targets). Plus years since logging, land tenure,
+host-tree share and stand age (host-tree targets), plus a moisture-credit
+overlay for any profile that carries a moisture block. Plus years since
+logging, land tenure,
 roads, trails, protected areas and observations. Filters
 for minimum score, max drive time, max hike distance, elevation band, hiding
 flagged land and hiding recently logged ground. Vector layers are fetched only

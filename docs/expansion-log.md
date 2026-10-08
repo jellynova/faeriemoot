@@ -117,7 +117,7 @@ than a single page citation:
 |---|---|---|
 | `spectral` (existing) | Sentinel-2 NDVI/NDMI canopy continuum | meadow, dry open and disturbed-ground plants |
 | `host_trees` (existing) | BC VRI stand composition, age, crown closure | mycorrhizal fungi, and (generalised) target trees and epiphytic lichens |
-| `riparian` (new) | Distance to FWA streams/wetlands/lakes, weighted by stream order | moisture-obligate plants: devil's club, nettle, elderberry |
+| `moisture` (optional extra) | Distance to FWA streams/lakes/wetlands by stream order, blended with topographic position | moisture-obligate plants: devil's club, nettle, elderberry |
 
 The `host_trees` model was written for the chanterelle but is not
 mushroom-specific: it scores "how much of this stand is the thing the target
@@ -127,44 +127,68 @@ unchanged.
 
 ---
 
-## The riparian model
+## The moisture component
 
 Water proximity comes from BC's **Freshwater Atlas** (FWA): streams as lines
 with a `STREAM_ORDER`, lakes/rivers/wetlands as polygons. Verified live against
 the WFS before it was wired in — all four layers return data and the geometry
-column is `GEOMETRY`.
-
-Three things about the data shaped the design:
+column is `GEOMETRY`. Three things about the data shaped the design:
 
 * **Stream order matters.** Of 526 stream segments in an 8 km test box, 267
   were first-order and only 25 were fifth-order. A first-order gully is often
-  dry by midsummer; a fourth-order mainstem is not. Each cell therefore takes
-  the credit of the stream it is *nearest to*, so a seep next door beats a
-  mainstem across the valley.
+  dry by midsummer; a fourth-order mainstem is not. Profiles filter on
+  `min_stream_order` for that reason.
 * **Order 9 is not an order.** It marks FWA's *areal* representation of a major
-  river — the Columbia appears this way — so the credit table clamps at the
-  top rather than reading 9 as an unknown. This is documented in the stage
-  because it looks like a bug otherwise.
-* **Wetlands are habitat, not water to exclude.** A skunk-cabbage swamp is
-  prime devil's-club ground, so only open lake/river water is masked out;
-  wetlands score.
+  river — the Columbia appears this way. Noted because it looks like a data bug
+  otherwise.
+* **Wetlands count as habitat, not as water to exclude.** A skunk-cabbage swamp
+  is prime devil's-club ground, so a profile lists wetlands among the features
+  it credits rather than masking them out.
 
-Slope comes from the DEM the terrain stage already built, so a riparian run
-downloads no Sentinel-2 imagery at all — it is the cheapest habitat model of
-the three.
+The second half of the component is **topographic position** — a cell's
+elevation against the mean within a window around it. That is what catches a
+seep or a toe slope with no blue line drawn on it, which is exactly how devil's
+club grows. Neither half needs Sentinel-2, so a moisture species run is cheap.
 
-A first real run against the West Kootenays AOI is worth recording, because it
-says something about how much the layer discriminates. The AOI returned 9,069
-stream segments, 330 lakes, 59 river polygons and 188 wetlands, and **79% of
-the AOI turned out to lie within 350 m of some water** — this is a wet, deeply
-dissected landscape, not a dry one. So the candidate pool is large and the
-median riparian score is low (0.10); what separates the top sites is not
-"near water or not" but proximity *within* the band and, more sharply, flat
-ground, since the slope credit zeroes out the steep gullies that most of those
-streams run through. The percentile-based site selection then takes the best
-1%. The practical consequence: for these species the map is a *ranking* of
-riparian ground, and the top pins are the floodplain and bench sites rather
-than the banks of the nearest ditch.
+### Why this is a component and not a third habitat model
+
+This work first implemented water as a third `habitat_model` (`riparian`) that
+*replaced* the vegetation or forest layer. The designated branch already had a
+`moisture` component that *adds* to either, and on review the component is the
+better design, so the riparian model was removed and its species re-targeted:
+
+* **Water composes.** A moisture-obligate plant still has a stand or a canopy
+  worth scoring — devil's club wants wet *cedar-hemlock forest*, not wet ground
+  in general — and a replacement model throws that signal away.
+* **It catches unmapped water.** Topographic position finds the seep; distance
+  to a mapped stream alone cannot.
+* **One mechanism, not two.** Two parallel implementations of "how far is the
+  water" would have meant two FWA fetches and two places for the logic to drift.
+
+The three water species therefore score on two signals each:
+
+| Species | Habitat model | What the model finds | What moisture adds |
+|---|---|---|---|
+| Devil's club | `host_trees` | Cedar-led wet forest, as an *indicator* of forest type | The wet patch within it |
+| Stinging nettle | `spectral` | Open, lush, disturbed ground | The damp part of it |
+| Red elderberry | `spectral` | Open-to-semi-open edge and runout | The damp ground it needs |
+
+Devil's club is the case the branch's `forest.host_label` exists for: the
+affinity table names cedar, but cedar forms arbuscular associations and hosts
+nothing, so the stand is being used as an indicator rather than as a host. The
+label makes the UI say "cedar-rich forest" rather than "host-rich forest", and
+the profile comment says the same thing for anyone reading the config.
+
+A first real run is worth recording, because it says how much the layer
+discriminates. The AOI returned 9,069 stream segments, 330 lakes, 59 river
+polygons and 188 wetlands, and **79% of the AOI lies within 350 m of some
+water** — this is a wet, deeply dissected landscape, not a dry one. So the
+candidate pool is large: what separates the top sites is proximity *within* the
+band, the topographic-position term, and the stand or canopy signal that goes
+with it. The percentile-based site selection then takes the best 1%. The
+practical consequence is that these maps are a *ranking* of damp ground, and
+the top pins are the floodplain, bench and toe-slope sites rather than the bank
+of the nearest ditch.
 
 ## Species checklist
 
@@ -173,9 +197,9 @@ listed so the set's coverage is visible at a glance.
 
 | Species | Common name | Model | Themes | Status |
 |---|---|---|---|---|
-| *Oplopanax horridus* | devil's club | riparian | protection, spirit-work, healing, luck | added |
-| *Urtica dioica* | stinging nettle | riparian | protection, banishing, weather, healing | added |
-| *Sambucus racemosa* | red elderberry | riparian | protection, banishing, death, prosperity | added |
+| *Oplopanax horridus* | devil's club | host_trees + moisture | protection, spirit-work, healing, luck | added |
+| *Urtica dioica* | stinging nettle | spectral + moisture | protection, banishing, weather, healing | added |
+| *Sambucus racemosa* | red elderberry | spectral + moisture | protection, banishing, death, prosperity | added |
 | *Chamaenerion angustifolium* | fireweed | spectral | healing | added |
 | *Achillea millefolium* | yarrow | spectral | divination, love, protection, courage | added |
 | *Verbascum thapsus* | mullein | spectral | protection, banishing, divination | added |
@@ -238,7 +262,7 @@ Design decisions worth recording:
 |---|---|---|
 | 1 | Plan, presence research, this log | done |
 | 2 | `folk_magic` schema + validation + manifest export + UI panel | done |
-| 3 | `riparian` habitat model (new stage) | done |
+| 3 | Water signal: moisture component (merged from the branch; the `riparian` model this work first wrote was removed in favour of it) | done |
 | 4 | New species profiles, one commit each | done (15) |
 | 5 | README + docs for the new models and data | done |
 
@@ -248,25 +272,30 @@ See the commit history for the per-species steps; each commit runs the suite.
 
 * **15 new species profiles** on top of the two that existed, 17 in total, each
   with a habitat model, a folk-magic block and a safety note.
-* **A third habitat model** (`riparian`) with its own stage, plus the
-  generalisations the new species needed: the `host_trees` model now serves
-  trees and lichens as well as fungi, the scoring stage dispatches all three
-  models through one table, and profiles can relabel the habitat rows.
+* **The moisture component** for the water species, merged from the branch and
+  consolidated on: this work's parallel `riparian` model was removed so there is
+  one way to score water, not two. The new species also generalised
+  `host_trees`, which now serves trees and lichens as well as fungi.
 * **The `folk_magic` schema**, validated at config load, carried in the
   manifest, and rendered on the site popup and in a sidebar panel.
-* **365 tests**, up from 82: the new suites cover the folk-magic schema, the
-  riparian stage (including a synthetic end-to-end run), and a structural check
-  of every profile.
+* **389 tests**, up from 82: the new suites cover the folk-magic schema, the
+  moisture component, and a structural check of every profile.
 
 Verified beyond the suite:
 
-* The **full pipeline ran end to end** for devil's club - a riparian species,
-  which is the model with the newest code path - in 243 s, producing 187 ranked
-  sites, 7 raster overlays including the riparian class and water-distance
-  layers, and a manifest carrying the folk-magic block.
+* The **full pipeline ran end to end** for devil's club, the species that
+  exercises the most machinery (host-tree indicator + moisture): 23,722 VRI
+  stands, 7.8% of the AOI mapped as water, 215 ranked sites, 11 raster overlays
+  including the moisture layer, and a manifest carrying the folk-magic block.
+  The top site is a 148-year-old cedar-rich stand 0 m from water - which is
+  what the model is supposed to find.
+* The **browser check caught two more real bugs**, both now fixed and
+  re-measured: the popup had grown past 1000 px with its top off the map, and
+  the stand-share row read "Host share" while the layer toggle read "Cedar
+  share", because the label was not travelling in the manifest.
 * The **map UI was driven in a real browser** against that build: the sidebar
-  panel and the popup both render the folklore content, and the riparian layers
-  appear in the toggle list. That check found a genuine bug - the popup had
+  panel and the popup both render the folklore content, and the moisture layer
+  appears in the toggle list. That check found a genuine bug - the popup had
   grown past 1000 px and its top ran off the map - which is fixed and
   re-measured.
 * The **original spectral path was re-run** for arnica: 188 sites and 14
