@@ -1,0 +1,117 @@
+{
+  "$comment": "Target profile for a pioneer. Fireweed colonises ground the year after it is burnt or cut, so it is the one species here where the clearcut penalty is deliberately switched off: a fresh cutblock is genuine habitat, not a false positive.",
+  "id": "chamaenerion_angustifolium",
+  "common_name": "Fireweed",
+  "scientific_name": "Chamaenerion angustifolium",
+  "habitat_model": "spectral",
+  "habitat_note": "Open, disturbed ground at almost any elevation: burns, cutblocks, roadsides, avalanche tracks, gravel bars and meadow. A pioneer that wants bare mineral soil and full light, so it is scored as strongly open ground - and, unusually for this app, recent logging is treated as habitat rather than penalised.",
+  "folk_magic": {
+    "$comment": "An honest entry: fireweed is thoroughly documented in food, fibre and herbal use, and thinly documented in magic. Rather than invent a charm to fill the field, the profile carries the one association the record supports and says so.",
+    "folk_names": [
+      "fireweed",
+      "great willowherb",
+      "rosebay willowherb",
+      "blooming Sally",
+      "Ivan-chai"
+    ],
+    "traditions": [
+      "European and Russian herbalism",
+      "Northwest Coast and interior Indigenous nations (food, fibre and medicine)"
+    ],
+    "associations": [
+      {
+        "theme": "healing",
+        "note": "The documented record is herbal and practical rather than magical: fireweed was used as a soothing application for burns, scalds, sores and skin complaints, as a spring green and a tea (Ivan-chai in Russia, where it was fermented as a tea substitute and traded), and its inner stem fibre was used for cordage and fishing line. Indigenous nations across the Pacific Northwest and interior used it for food, medicine and fibre in comparable ways.",
+        "origin": "European and Russian herbalism for the burn and tea traditions; Northwest Coast and interior Indigenous nations for food, medicine and cordage. The plant's magical record is genuinely thin, and this profile does not pretend otherwise."
+      }
+    ],
+    "safety": {
+      "level": "none",
+      "note": "No known hazard. Young shoots and leaves are eaten cooked, the pith is edible, and fireweed honey is a commercial product. The usual caution applies to eating any wild plant you have not identified yourself, and to the possibility of confusing it with other willowherbs - none of which are dangerous, but none of which are this plant either."
+    },
+    "sources": [
+      "Turner, N. J., and Moerman, D. - Indigenous North American use for food, medicine and fibre.",
+      "Russian and European herbal sources for Ivan-chai and the burn applications."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Aspect is zero-weighted: fireweed is a generalist that will take any slope that is open and disturbed, so which way it faces is not a useful discriminator.",
+    "weights": {
+      "terrain": 0.30,
+      "vegetation": 0.35,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.6,
+      "slope": 0.4,
+      "aspect": 0.0
+    }
+  },
+  "observations": {
+    "taxon_name": "Chamaenerion angustifolium",
+    "genus_fallback": "Chamaenerion",
+    "$comment": "131 research-grade records in the AOI - by far the best-observed plant in this set, which makes sense for a showy roadside species.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 700,
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Deliberately wide. Fireweed runs from the valley floor to well up into the subalpine, so the elevation band should exclude almost nothing.",
+      "hard_min": 250,
+      "optimal_min": 400,
+      "optimal_max": 1700,
+      "hard_max": 2300
+    },
+    "slope_deg": {
+      "$comment": "Tolerates steep ground - road cuts and avalanche chutes are classic sites - so the hard ceiling is high.",
+      "optimal_min": 0,
+      "optimal_max": 30,
+      "hard_max": 45
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 180.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "$comment": "Scored as open ground. Fireweed does not grow under closed canopy, so the openness continuum does the work here.",
+    "ndvi": {
+      "hard_min": 0.3,
+      "optimal_min": 0.45,
+      "optimal_max": 0.9
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "$comment": "Open meadow and the open-canopy conditions of a young cutblock both score fully; closed forest is nearly excluded.",
+      "meadow": 1.0,
+      "open_forest": 0.8,
+      "closed_forest": 0.15,
+      "bare": 0.1
+    },
+    "logging": {
+      "$comment": "The one profile where the cutblock penalty is switched off. Fireweed is a fire-follower: a cutblock or burn is exactly where it grows, so penalising recent logging would remove the species' best habitat. penalty 1.0 means no penalty is applied.",
+      "penalty": 1.0,
+      "recovery_years": 1
+    }
+  },
+  "imagery_window_override": null
+}
