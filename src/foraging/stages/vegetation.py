@@ -292,7 +292,11 @@ def classify(cfg: Config, grid: Grid, ndvi, ndmi, texture, log=print) -> dict:
     openness_credit[bare] = pref["bare"]
     openness_credit[~np.isfinite(closure)] = np.nan
 
-    ndvi_fit = trapezoid(ndvi, ndvi_cfg["hard_min"], ndvi_cfg["optimal_min"], ndvi_cfg["optimal_max"], None)
+    # hard_max is optional: a dry-ground species (mullein, sage) is wrong on
+    # lush ground, so its fit can fall off above optimal_max. Without one, high
+    # NDVI keeps full credit, which is right for a meadow plant.
+    ndvi_fit = trapezoid(ndvi, ndvi_cfg["hard_min"], ndvi_cfg["optimal_min"], ndvi_cfg["optimal_max"],
+                         ndvi_cfg.get("hard_max"))
     score = (ndvi_fit * openness_credit).astype("float32")
 
     if cfg.weights["hard_filters"].get("enforce_ndvi_hard_min", True):

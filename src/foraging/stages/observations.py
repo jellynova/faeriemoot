@@ -34,13 +34,29 @@ WEIGHT_CONGENER = 0.2
 WEIGHT_OTHER = 0.5
 
 
+def is_target(taxon: str | None, target: str) -> bool:
+    """``taxon`` is the target or one of its descendants.
+
+    iNaturalist returns a record under the most specific name it was identified
+    to, so a target is matched by name prefix: western fly agaric records come
+    back as *Amanita muscaria flavivolvata*, and a genus-level target such as
+    *Rosa* sees its records as *Rosa nutkana*, *Rosa woodsii* and so on. Both are
+    the target, not "other".
+    """
+    if not isinstance(taxon, str) or not taxon:
+        return False
+    return taxon == target or taxon.startswith(target + " ")
+
+
 def _weight_for(taxon: str | None, target: str, downweight: set[str]) -> float:
     if not taxon:
         return WEIGHT_OTHER
-    if taxon == target:
-        return WEIGHT_EXACT
+    # Down-weighting is checked first so a profile can exclude one descendant
+    # of a genus-level target, e.g. a garden escape.
     if taxon in downweight:
         return WEIGHT_CONGENER
+    if is_target(taxon, target):
+        return WEIGHT_EXACT
     return WEIGHT_OTHER
 
 

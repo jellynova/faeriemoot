@@ -54,6 +54,7 @@ from foraging.config import load_config, load_json  # noqa: E402
 from foraging.curves import aspect_score, trapezoid, weighted_mean  # noqa: E402
 from foraging.grid import Grid  # noqa: E402
 from foraging.sources.inaturalist import fetch_observations  # noqa: E402
+from foraging.stages.observations import is_target  # noqa: E402
 from foraging.validation import (  # noqa: E402
     auc,
     bootstrap_aucs,
@@ -104,7 +105,7 @@ def load_records(cfg, vcfg, log=print):
     precise = obs["accuracy_m"].notna() & (obs["accuracy_m"] <= MAX_ACCURACY_M)
     accounting = {}
     for role, taxon in groups.items():
-        m = obs["taxon"] == taxon
+        m = obs["taxon"].map(lambda t, taxon=taxon: is_target(t, taxon)).astype(bool)
         accounting[role] = {
             "taxon": taxon,
             "in AOI": int(m.sum()),
@@ -112,7 +113,8 @@ def load_records(cfg, vcfg, log=print):
             "imprecise or no accuracy": int((m & ~obscured & ~precise).sum()),
             "usable": int((m & ~obscured & precise).sum()),
         }
-    keep = obs["taxon"].isin(groups.values()) & ~obscured & precise
+    keep = obs["taxon"].map(lambda t: any(is_target(t, g) for g in groups.values())).astype(bool)
+    keep &= ~obscured & precise
     return obs[keep], accounting
 
 
@@ -208,7 +210,7 @@ def main(argv=None) -> int:
     proj = obs.to_crs(cfg.aoi.estimate_utm_crs())
     units = {}
     for role, taxon in (("target", target), ("contrast", contrast)):
-        g = proj[proj["taxon"] == taxon]
+        g = proj[proj["taxon"].map(lambda t, taxon=taxon: is_target(t, taxon)).astype(bool)]
         units[role] = n_units(spatial_clusters(g.geometry.x, g.geometry.y, args.cluster_m), len(g)) if len(g) else 0
     print(f"  independent clusters at {args.cluster_m:g} m: target {units['target']}, "
           f"contrast {units['contrast']}")
