@@ -65,10 +65,10 @@
   },
   "terrain": {
     "elevation_m": {
-      "$comment": "Deliberately wide. Fireweed runs from the valley floor to well up into the subalpine, so the elevation band should exclude almost nothing.",
+      "$comment": "Deliberately wide. Fireweed runs from the valley floor to well up into the subalpine, so the elevation band should exclude almost nothing: the AOI's records have an interquartile range of 740-1280 m with 8% above the old 1700 m top, so the optimal top now sits at 1900 m.",
       "hard_min": 250,
       "optimal_min": 400,
-      "optimal_max": 1700,
+      "optimal_max": 1900,
       "hard_max": 2300
     },
     "slope_deg": {

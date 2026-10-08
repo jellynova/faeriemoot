@@ -82,11 +82,11 @@
   },
   "terrain": {
     "elevation_m": {
-      "$comment": "Valley bottom to lower subalpine; it reaches higher than the other two riparian species because it follows avalanche runouts and wet gullies upslope.",
+      "$comment": "Widened at the top to cover both forms. The species runs from valley-bottom thickets to subalpine runouts, and this AOI's records are mostly the upper one: of 11 usable records the interquartile range is 1578-1810 m, and only 18% fell inside the old 400-1200 m optimal band, so the model was crediting its best local ground only partially. The lowland riparian form stays fully credited.",
       "hard_min": 300,
       "optimal_min": 400,
-      "optimal_max": 1200,
-      "hard_max": 1700
+      "optimal_max": 1900,
+      "hard_max": 2200
     },
     "slope_deg": {
       "$comment": "Gentler than nettle's allowance - it is a shrub of benches and runout toes, not of steep ground.",

@@ -77,6 +77,72 @@ Two caveats, both stated because they bound what the numbers mean:
 | *Pteridium aquilinum* (bracken) | Present and folkloric, but bracken's magic belongs to European *Pteridium* fern-seed lore while the local plant is a carcinogenic toxic; the safety note would dominate the entry. Left out. |
 | *Arctostaphylos uva-ursi* (kinnikinnick) | Present and abundant (175 AOI) with real ceremonial use. Left out of this pass only to keep the set focused on the requested candidates; a good next addition. |
 
+## Elevation evidence behind the terrain bands
+
+Every profile sets an elevation band, and until now nothing in this log showed
+where those bands came from. They were checked against the DEM at the species'
+own occurrence records: each research-grade, non-obscured record with a stated
+accuracy of 100 m or better was sampled from the Copernicus 30 m DEM, using the
+90 m validation grid over the wide Kootenays extent (n up to 378 per species)
+and the 30 m AOI grid for the local picture.
+
+| Species | n (wide) | p05 | p25 | median | p75 | p95 |
+|---|---|---|---|---|---|---|
+| *Oplopanax horridus* | 231 | 547 | 621 | 805 | 1114 | 1497 |
+| *Urtica dioica* | 57 | 518 | 561 | 744 | 1385 | 1743 |
+| *Sambucus racemosa* | 150 | 536 | 1343 | 1677 | 1797 | 1983 |
+| *Chamaenerion angustifolium* | 365 | 534 | 859 | 1347 | 1823 | 2197 |
+| *Achillea millefolium* | 350 | 474 | 554 | 705 | 1361 | 2135 |
+| *Verbascum thapsus* | 348 | 446 | 503 | 549 | 661 | 1056 |
+| *Juniperus scopulorum* | 141 | 406 | 418 | 534 | 640 | 951 |
+| *Artemisia ludoviciana* | 43 | 403 | 436 | 450 | 533 | 561 |
+| *Hypericum perforatum* | 129 | 436 | 468 | 560 | 840 | 1080 |
+| *Rosa acicularis* | 3 | 476 | 514 | 561 | 614 | 656 |
+| *Thuja plicata* | 378 | 492 | 609 | 940 | 1073 | 1331 |
+| *Pseudotsuga menziesii* | 374 | 414 | 489 | 601 | 1051 | 1419 |
+| *Betula papyrifera* | 110 | 438 | 513 | 587 | 728 | 1010 |
+| *Alectoria sarmentosa* | 50 | 526 | 596 | 838 | 1064 | 1666 |
+| *Amanita muscaria* | 63 | 434 | 483 | 615 | 1545 | 1761 |
+| *Arnica latifolia* (existing) | 42 | 637 | 1623 | 1786 | 1940 | 2201 |
+
+*Cantharellus formosus* has no row: every golden-chanterelle record in the
+extent is obscured, which is the same reason the chanterelle model cannot be
+validated (README, Validation).
+
+The same check run on the **AOI's own records** is the more decision-relevant
+one, and it disagreed with the wide extent for two species, because the wide
+extent reaches into wetter ranges this AOI does not:
+
+| Species | n (AOI) | p25-p75 (AOI) | Optimal band | In band |
+|---|---|---|---|---|
+| *Sambucus racemosa* | 11 | 1578-1810 | 400-1200 | **18%** |
+| *Oplopanax horridus* | 20 | 865-1100 | 380-950 | **55%** |
+| *Urtica dioica* | 9 | 589-741 | 380-1100 | 100% |
+| *Chamaenerion angustifolium* | 116 | 740-1280 | 400-1700 | 92% |
+| *Amanita muscaria* | 28 | 436-602 | 400-1300 | 96% |
+
+Three bands were widened as a result, each with the measurement recorded in the
+profile's own `$comment`:
+
+* **Red elderberry** was the real miss. Its optimal band stopped at 1200 m while
+  82% of the AOI's records sit above it - the profile had reasoned "valley bottom
+  to lower subalpine", and the local population is mostly the subalpine half. The
+  band now runs to 1900 m with the lowland riparian form still fully credited.
+* **Devil's club** topped out at 950 m against an AOI interquartile range of
+  865-1100 m, so the upper half of its local ground was on the falling ramp.
+  Optimal top now 1150 m.
+* **Fireweed's** comment already said the band "should exclude almost nothing",
+  and 8% of AOI records sat above 1700 m; optimal top now 1900 m.
+
+Nettle and fly agaric were checked and left alone: 100% and 96% of their AOI
+records already fall inside their bands.
+
+The caveat that applies to the presence counts applies here too, and in the same
+direction: these are where people *recorded* the plant, so they follow roads,
+trails and towns. The lower tail understates how low a species goes; the upper
+tail is the more trustworthy end, and it is the upper end that the two
+mistuned bands got wrong.
+
 ## Folk-magic associations: how they are framed
 
 Every association in a profile carries a **theme** (protection, love,
@@ -278,10 +344,21 @@ See the commit history for the per-species steps; each commit runs the suite.
   `host_trees`, which now serves trees and lichens as well as fungi.
 * **The `folk_magic` schema**, validated at config load, carried in the
   manifest, and rendered on the site popup and in a sidebar panel.
-* **389 tests**, up from 82: the new suites cover the folk-magic schema, the
+* **393 tests**, up from 82: the new suites cover the folk-magic schema, the
   moisture component, and a structural check of every profile.
 
 Verified beyond the suite:
+
+* **Two engine gaps were found by checking the profiles against the code, not
+  by a test.** `verbascum_thapsus` declared `ndvi.hard_max` with a comment
+  explaining the ceiling, but `vegetation.classify` passed `None` as the
+  trapezoid's upper edge, so the ceiling never applied; and iNaturalist files a
+  record under the most specific name it was identified to, so five of the
+  AOI's 43 fly agaric records arrive as *Amanita muscaria flavivolvata* and were
+  weighted as "other" rather than as the target. Both are fixed, with tests.
+* **Every elevation band was checked against the DEM at the species' own
+  records** (see the elevation-evidence section). Two were genuinely mistuned
+  for this AOI and three were widened; the rest were confirmed as they stood.
 
 * The **full pipeline ran end to end** for devil's club, the species that
   exercises the most machinery (host-tree indicator + moisture): 23,722 VRI

@@ -82,11 +82,11 @@
   },
   "terrain": {
     "elevation_m": {
-      "$comment": "Low to mid elevation: a valley and lower-slope plant, occasionally reaching the subalpine in wet gullies. The lower bound sits below the AOI valley floor, so only the upper side bites.",
+      "$comment": "Low to mid elevation: a valley and lower-slope plant that reaches the subalpine in wet gullies. The lower bound sits below the AOI valley floor, so only the upper side bites. The optimal top was raised from 950 to 1150 m after the AOI's records put the interquartile range at 865-1100 m, which had left only 55% of them inside the band.",
       "hard_min": 300,
       "optimal_min": 380,
-      "optimal_max": 950,
-      "hard_max": 1400
+      "optimal_max": 1150,
+      "hard_max": 1500
     },
     "slope_deg": {
       "$comment": "Flat to gentle - floodplain, terrace and toe-slope. The riparian stage applies its own tighter slope credit; this one feeds the terrain component.",
