@@ -381,7 +381,13 @@ def _write_manifest(cfg, gdf, grid) -> None:
             "scientific_name": cfg.species.get("scientific_name"),
             "habitat_note": cfg.species.get("habitat_note"),
             "habitat_model": cfg.habitat_model,
-            "habitat_label": HABITAT_LABELS.get(cfg.habitat_layer, "Habitat"),
+            # A profile may relabel the habitat layer and its detail rows: the
+            # forest model scores "host trees" for a mushroom, but for a tree
+            # target it scores the tree itself, and calling that "host share"
+            # in the popup would be wrong.
+            "habitat_label": cfg.species.get("habitat_label")
+                              or HABITAT_LABELS.get(cfg.habitat_layer, "Habitat"),
+            "forest_labels": cfg.species.get("forest_labels"),
             "season_months": cfg.species["observations"].get("months"),
             # Documentary folklore, shown on the site popup. Species-level, so
             # it travels once in the manifest rather than on every site.

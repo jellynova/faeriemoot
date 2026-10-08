@@ -1,0 +1,132 @@
+{
+  "$comment": "Target profile for a tree. The host_trees model was written for a mycorrhizal fungus, but it is not mushroom-specific: it scores 'how much of this stand is the thing the target needs', which for a tree target means the tree's own share of the stand. No stage changes were needed - only the affinity table, the labels, and the age and closure bands.",
+  "id": "thuja_plicata",
+  "common_name": "Western redcedar",
+  "scientific_name": "Thuja plicata",
+  "habitat_model": "host_trees",
+  "habitat_note": "Western redcedar is a tree of moist, mild, low-elevation sites - valley bottoms, stream terraces, seepage slopes and the wetter lower slopes - where it often leads mixed stands. Scored on the cedar share of the stand from the BC forest inventory, times stand age and crown closure, since a cedar plantation and an old cedar grove are not the same thing.",
+  "habitat_label": "Cedar stands",
+  "forest_labels": {
+    "$comment": "The popup's detail row, relabelled because 'host share' would be wrong for a tree target.",
+    "share": "Cedar share"
+  },
+  "folk_magic": {
+    "$comment": "The tree of life of the Northwest Coast. The associations are Indigenous and are labelled as such; there is no meaningful European record for this species.",
+    "folk_names": [
+      "western redcedar",
+      "giant cedar",
+      "canoe cedar",
+      "the tree of life"
+    ],
+    "traditions": [
+      "Coast Salish, Haida, Tlingit, Kwakwaka'wakw, Nuu-chah-nulth",
+      "Interior nations of BC"
+    ],
+    "associations": [
+      {
+        "theme": "purification",
+        "note": "Cedar is the standard purifying plant of the Northwest Coast: the boughs, and the smoke of the boughs, are used to cleanse a person, a house or a space, and to prepare for ceremony. A person coming from a place of sickness or grief was cleansed with cedar, and the practice continues.",
+        "origin": "Northwest Coast nations - Coast Salish, Haida, Tlingit, Kwakwaka'wakw and Nuu-chah-nulth among them; cedar cleansing is one of the most widely documented practices of the region."
+      },
+      {
+        "theme": "protection",
+        "note": "Worn, hung and burned as a protective plant against illness and malevolent influence. Cedar bark was worked into charms and clothing with protective intent, boughs were placed at doorways, and the tree itself was understood to keep harm from the household that lived beside it.",
+        "origin": "Northwest Coast nations; the protective use of cedar bark and boughs is recorded throughout the ethnographic literature."
+      },
+      {
+        "theme": "spirit-work",
+        "note": "Cedar is a sacred tree with real spiritual power in the traditions that live with it, not merely a useful plant: the boughs were used in ritual bathing and cleansing, the tree is central to ceremony, and it mediates between the household and the spirit world. It is also the material of canoes, longhouses, boxes, clothing and medicine, which is why it is called the tree of life.",
+        "origin": "Northwest Coast and interior nations; the ceremonial and material centrality of cedar is recorded across the whole region."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "Cedar leaf oil contains thujone and is toxic in quantity - it is not for internal use, and the concentrated oil should not be taken at all. Cedar wood dust is a respiratory and skin irritant and a known sensitiser, which matters if you are cutting or sanding it. Burning boughs for cleansing is a different act from ingesting the plant, but the smoke is still an irritant. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Turner, N. J., on Northwest Coast and interior BC plant use - the primary source for the ceremonial and protective uses of cedar.",
+      "Stewart, H., Cedar: Tree of Life to the Northwest Coast Indians - the material and cultural record.",
+      "Moerman, D., Native American Ethnobotany - compiled ethnographic records."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Same shape as the chanterelle's: the habitat component is 'forest'. Aspect is zero-weighted, because which trees grow where already encodes the site conditions a cedar needs.",
+    "weights": {
+      "terrain": 0.25,
+      "forest": 0.50,
+      "access": 0.15,
+      "observations": 0.10
+    },
+    "terrain_subweights": {
+      "elevation": 0.7,
+      "slope": 0.3,
+      "aspect": 0.0
+    }
+  },
+  "observations": {
+    "taxon_name": "Thuja plicata",
+    "genus_fallback": "Thuja",
+    "$comment": "262 research-grade records in the AOI - the best-observed species in this set. For a tree target the records are genuine occurrences of the target, not a proxy, though they are still biased to wherever people walk and photograph.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 1200,
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Cedar is a low-elevation tree in this region - it wants mild, moist sites and gives way to hemlock, spruce and fir as you climb. The upper ramp is the important one.",
+      "hard_min": 250,
+      "optimal_min": 400,
+      "optimal_max": 1100,
+      "hard_max": 1500
+    },
+    "slope_deg": {
+      "$comment": "Steep ground is not excluded - cedar hangs on seepage slopes - but the optimal band favours gentle ground.",
+      "optimal_min": 0,
+      "optimal_max": 30,
+      "hard_max": 45
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "forest": {
+    "host_affinity": {
+      "$comment": "Cedar is the target, so it is the only species that counts. Every other code is left out and falls to default_affinity 0.0: a stand with no cedar in it is not cedar habitat, however good the rest of the forest is. Yellow-cedar (YC) is a coastal species that does not occur here, so it is not listed.",
+      "CW": 1.0
+    },
+    "default_affinity": 0.0,
+    "host_fraction": {
+      "$comment": "Below a 20% cedar share the stand is not cedar ground; credit rises to full at 60%, where the stand is effectively a cedar stand. Cedar leads mixed stands, so a modest share still means a real cedar presence.",
+      "hard_min": 0.2,
+      "saturation": 0.6
+    },
+    "stand_age_credit": {
+      "$comment_knots": "Piecewise-linear [age_years, credit]. Nothing in fresh regeneration, then a long climb: cedar is slow-growing and the characteristics that make an old cedar stand - big trees, deep bark, moist shaded ground - take decades to develop. Old growth keeps full credit rather than declining, because cedar is exceptionally long-lived and does not give way at the age other species do.",
+      "knots": [
+        [0, 0.0],
+        [25, 0.4],
+        [80, 1.0],
+        [500, 0.9]
+      ]
+    },
+    "crown_closure_pct": {
+      "$comment": "Cedar tolerates and creates dense shade, so closed canopy is fully credited. Very open stands are still cedar ground if the site is wet, hence the low hard_min.",
+      "hard_min": 15,
+      "optimal_min": 35,
+      "optimal_max": 100,
+      "hard_max": null
+    },
+    "missing_attribute_credit": 0.5
+  },
+  "imagery_window_override": null
+}

@@ -442,8 +442,10 @@
   function habitatRows(p) {
     var model = habitatModel();
     if (model === "host_trees") {
+      var fl = (current.manifest.species || {}).forest_labels || {};
       return "<dt>Leading tree</dt><dd>" + (p.leading_species || "-") + "</dd>" +
-        "<dt>Host share</dt><dd>" + fmt(p.host_fraction === null ? null : p.host_fraction * 100, 0, "%") + "</dd>" +
+        "<dt>" + esc(fl.share || "Host share") + "</dt><dd>" +
+        fmt(p.host_fraction === null ? null : p.host_fraction * 100, 0, "%") + "</dd>" +
         "<dt>Stand age</dt><dd>" + fmt(p.stand_age_years, 0, " yr") + "</dd>";
     }
     if (model === "riparian") {
