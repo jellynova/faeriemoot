@@ -58,10 +58,16 @@
   "observations": {
     "taxon_name": "Rosa acicularis",
     "genus_fallback": "Rosa",
-    "$comment": "Only 1 research-grade R. acicularis record in the AOI, so the genus query (23 records) does the work. Nootka rose (R. nutkana) and Woods' rose (R. woodsii) are down-weighted: both are real local roses, but their habitats differ enough that boosting from their records would blur this profile's signal rather than sharpen it.",
+    "$comment": "Only 1 research-grade R. acicularis record in the AOI, so the genus query (23 records) does the work. The other local roses (R. nutkana, R. woodsii, R. gymnocarpa) are down-weighted: all real wild roses, but their habitats differ enough that boosting from their records would blur this profile's signal rather than sharpen it. The introduced roses are down-weighted for a stronger reason - they are garden and roadside escapes, and they are the single largest block of Rosa records in the AOI (R. multiflora alone has 11 of the 23), so left at the default weight the observation layer would rank towns and fencerows as prime prickly-rose ground.",
     "congeners_downweight": [
       "Rosa nutkana",
-      "Rosa woodsii"
+      "Rosa woodsii",
+      "Rosa gymnocarpa",
+      "Rosa multiflora",
+      "Rosa canina",
+      "Rosa rugosa",
+      "Rosa rubiginosa",
+      "Rosa glauca"
     ],
     "quality_grade": "research",
     "boost_radius_m": 900,
