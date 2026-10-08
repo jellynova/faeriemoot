@@ -263,7 +263,15 @@
         fillColor: scoreColour(p.score),
         fillOpacity: 0.9
       });
-      marker.bindPopup(popupHTML(p, c), { maxWidth: 320 });
+      // The folk-magic block makes these popups tall - a four-association
+      // species runs past 1000 px. Cap the height at a fraction of the
+      // viewport and let Leaflet scroll the content: a popup taller than the
+      // space above its marker has its top run off the map, and autoPan does
+      // not rescue it.
+      marker.bindPopup(popupHTML(p, c), {
+        maxWidth: 360,
+        maxHeight: Math.max(240, Math.round(window.innerHeight * 0.45))
+      });
       marker.addTo(sitesLayer);
       markers.push(marker);
     });
