@@ -1,0 +1,129 @@
+{
+  "$comment": "Target profile for an introduced weed of dry disturbed ground. Mullein is one of the few species here that is not native to the region - it arrived with settlement and follows roads, gravel and pasture - which is worth stating rather than quietly treating it as a wild plant.",
+  "id": "verbascum_thapsus",
+  "common_name": "Mullein",
+  "scientific_name": "Verbascum thapsus",
+  "habitat_model": "spectral",
+  "habitat_note": "Dry, disturbed, open ground: roadsides, gravel pits, pasture, cutbanks, clearcut edges and waste ground, valley bottom to lower slopes. An introduced coloniser that needs bare ground and full sun, so it is scored as strongly open with a low NDVI floor and only a light logging penalty - it follows disturbance rather than avoiding it.",
+  "folk_magic": {
+    "folk_names": [
+      "mullein",
+      "great mullein",
+      "hag's taper",
+      "candlewick plant",
+      "Aaron's rod",
+      "flannel leaf",
+      "velvet plant"
+    ],
+    "traditions": [
+      "European folk magic and herbalism",
+      "Indigenous North American nations (adopted medicinal use after introduction)"
+    ],
+    "associations": [
+      {
+        "theme": "protection",
+        "note": "Mullein was a protective herb against evil spirits and witchcraft, carried on the person and hung in the home to keep harm out, and planted or left standing by a door for the same reason. The name hag's taper comes from the dried flower stalk, which was dipped in tallow and burned - a light that was believed to drive off witches and evil rather than merely to illuminate.",
+        "origin": "European folk magic; the hag's-taper name and the protective use are recorded in the British, German and French folk record."
+      },
+      {
+        "theme": "banishing",
+        "note": "Used to break and return hexes and ill-wishing, and burned for that purpose. Mullein's protective and banishing uses are two sides of the same practice: the plant was believed both to keep evil out and to push it back out again once it had arrived.",
+        "origin": "European folk magic; the hex-breaking and returning uses are recorded in the same British and German sources as the protective ones."
+      },
+      {
+        "theme": "divination",
+        "note": "Mullein appears in love divination and in the wider folk practice of using the plant to find out what is coming - most often by watching how the stalk burned or which way it fell. The association is recorded but less consistently than the protective one.",
+        "origin": "European folk tradition, with the recorded forms varying by region."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "The leaf hairs are a mechanical irritant and the fine dust from them is unpleasant to breathe; the seeds are the part to avoid, being toxic enough that they were historically used to stupefy fish. Leaf and flower infusions are the traditional preparation and are not otherwise considered dangerous, but mullein is not a plant to experiment with the seeds or the concentrated extracts of. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Culpeper, The Complete Herbal (17th c.) and Gerard, Herball (1597) - European medicinal and protective use.",
+      "British, German and French folk-magic compilations for the hag's taper and the hex-breaking use.",
+      "Moerman, D., Native American Ethnobotany - post-introduction Indigenous use."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Aspect carries a modest weight: mullein's best ground in this region is the hot, dry, south-facing roadside and gravel bank.",
+    "weights": {
+      "terrain": 0.30,
+      "vegetation": 0.35,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.55,
+      "slope": 0.25,
+      "aspect": 0.20
+    }
+  },
+  "observations": {
+    "taxon_name": "Verbascum thapsus",
+    "genus_fallback": "Verbascum",
+    "$comment": "111 research-grade records in the AOI, spread through the year because the dried stalks are conspicuous in winter; the month filter is set to the flowering season so the layer reflects the plant rather than the photographer.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 600,
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "A low-elevation plant here; it thins out quickly above the valley and lower slopes.",
+      "hard_min": 200,
+      "optimal_min": 350,
+      "optimal_max": 1100,
+      "hard_max": 1500
+    },
+    "slope_deg": {
+      "$comment": "Tolerates steep road cuts and gravel banks, so the ceiling is high.",
+      "optimal_min": 0,
+      "optimal_max": 25,
+      "hard_max": 40
+    },
+    "aspect": {
+      "$comment": "South to southwest, the hot dry side.",
+      "optimal_bearing_deg": 190.0,
+      "tolerance_deg": 100.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "$comment": "A low floor: mullein grows on gravel and compacted ground where the vegetation signal is weak, and a higher floor would exclude exactly the sites it favours.",
+      "hard_min": 0.22,
+      "optimal_min": 0.35,
+      "optimal_max": 0.8
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "$comment": "Bare ground scores higher than for the native meadow species: a gravel bank is a genuine mullein site, not a failure to find vegetation.",
+      "meadow": 1.0,
+      "open_forest": 0.6,
+      "closed_forest": 0.1,
+      "bare": 0.15
+    },
+    "logging": {
+      "$comment": "Follows disturbance, so the penalty is light and fades quickly - a fresh landing or cutbank is a mullein site.",
+      "penalty": 0.6,
+      "recovery_years": 15
+    }
+  },
+  "imagery_window_override": null
+}
