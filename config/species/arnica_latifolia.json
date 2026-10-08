@@ -5,6 +5,45 @@
   "scientific_name": "Arnica latifolia",
   "habitat_model": "spectral",
   "habitat_note": "Subalpine meadows AND open subalpine forest / forest edge. Deliberately NOT restricted to treeless meadow: A. latifolia is common under open canopy, so the vegetation stage scores a band of canopy openness rather than applying a binary meadow/forest cut.",
+  "folk_magic": {
+    "$comment": "Documentary folklore, not advice. Themes come from the closed vocabulary in src/foraging/folk_magic.py; origin names the tradition so European and Indigenous records are not conflated.",
+    "folk_names": [
+      "mountain arnica",
+      "broadleaf arnica",
+      "leopard's bane",
+      "mountain tobacco"
+    ],
+    "traditions": [
+      "European folk herbalism (Central and Alpine Europe)",
+      "Interior and other Indigenous North American nations (medicinal use of Arnica spp.)"
+    ],
+    "associations": [
+      {
+        "theme": "weather",
+        "note": "Arnica was hung in the house and the byre to turn away thunderstorms and lightning, and was counted among the herbs that protect a dwelling from bad weather. The protective use is the reason the plant turns up in folk charms far from where it actually grows.",
+        "origin": "European folk tradition; the storm-averting use of arnica is standard in the folk-herb literature and repeated across the Alpine and Central European herbal record."
+      },
+      {
+        "theme": "protection",
+        "note": "Carried or kept in the home as a general protective herb, and named 'leopard's bane' for the belief that it was bane to predators and harm. In the older herbals the bane in the name was read as warding, not as a cure.",
+        "origin": "European folk herbalism; the leopard's-bane name and its reading as a protective herb are recorded from Gerard and the herbals that followed him."
+      },
+      {
+        "theme": "healing",
+        "note": "The plant's overwhelming traditional record is medicinal rather than magical: poultices and infused oils for bruises, sprains, swellings and sore muscles, to the point that arnica is still known as the trauma herb. The magical and the medicinal uses sit side by side in the same herbals.",
+        "origin": "European herbalism (Culpeper, Gerard) for the poultice tradition; Indigenous North American nations used local Arnica species the same way, as a poultice and wash for swellings, wounds and muscular pain."
+      }
+    ],
+    "safety": {
+      "level": "toxic",
+      "note": "Not for internal use. Arnica contains helenalin and other sesquiterpene lactones that are toxic taken by mouth and can cause vomiting, rapid heartbeat and, in quantity, organ damage; it is a topical herb only, and not on broken skin. It causes contact dermatitis in many people, and anyone sensitive to the aster family should avoid it. It can interact with blood thinners such as warfarin. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Culpeper, The Complete Herbal (17th c.) and Gerard, Herball (1597) - European medicinal and protective use.",
+      "Turner, N. J., and co-authors, on interior British Columbia and Northwest Coast plant use - Indigenous medicinal use of Arnica species.",
+      "Moerman, D., Native American Ethnobotany - compiled ethnographic records for the genus."
+    ]
+  },
   "observations": {
     "taxon_name": "Arnica latifolia",
     "genus_fallback": "Arnica",

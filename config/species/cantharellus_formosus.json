@@ -5,6 +5,45 @@
   "scientific_name": "Cantharellus formosus",
   "habitat_model": "host_trees",
   "habitat_note": "Ectomycorrhizal with conifers, primarily Douglas-fir, also western hemlock. Fruits late summer through fall in second-growth and older stands with closed-to-moderate canopy. Scored on host-tree share, stand age and crown closure from the BC forest inventory rather than on reflectance. Note: C. formosus is mainly a coastal / Cascades species; in the interior, golden chanterelles are also C. roseocanus (with spruce and pine), and field ID matters.",
+  "folk_magic": {
+    "$comment": "Documentary folklore, not advice. Honest about provenance: the chanterelle's own magical record is thin, and most of what attaches to it is the general European lore of mushrooms - golden colour, fairy association, forest bounty - rather than a charm specific to this species. That distinction is stated in the notes rather than smoothed over.",
+    "folk_names": [
+      "golden chanterelle",
+      "Pacific golden chanterelle",
+      "girolle",
+      "pfifferling"
+    ],
+    "traditions": [
+      "European mushroom lore (French, German and Slavic folk tradition)",
+      "Modern foraging culture (spot secrecy and first-find customs)"
+    ],
+    "associations": [
+      {
+        "theme": "prosperity",
+        "note": "The golden colour and the market value of the girolle attached it to the general European belief that golden fungi are lucky and that a good mushroom year is a sign of the forest's favour. The association is with golden mushrooms as a class, not with this species specifically.",
+        "origin": "European mushroom lore; the reading of golden fungi as lucky and abundance-bringing is a widespread motif in French and German folk tradition rather than a documented chanterelle charm."
+      },
+      {
+        "theme": "spirit-work",
+        "note": "Mushrooms of many kinds were called the food of the fairies and said to spring up where the little people had danced, and in some tales eating them opened the sight. Chanterelles were gathered and feared in the same breath, but they are not the mushrooms of the visionary tales - those are the fly agaric and its kin, which this app profiles separately.",
+        "origin": "European fairy lore and mushroom folklore; the fairy-food motif is generic to mushrooms and is not specific to Cantharellus."
+      },
+      {
+        "theme": "luck",
+        "note": "Chanterelle picking carries its own folk customs: spots are kept secret, passed down within a family, and a first find of the season is treated as a good omen for the year. This is living foraging custom rather than older folklore, and it is recorded as such.",
+        "origin": "Contemporary foraging culture in Europe and the Pacific Northwest; the secrecy custom is well attested and is the reason occurrence records for this genus are so sparse (see the README on obscured records)."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "C. formosus is a good edible mushroom when correctly identified and cooked - raw chanterelles can cause gastrointestinal upset. The hazard is misidentification: the false chanterelle (Hygrophoropsis aurantiaca) is a different order of fungus and can cause illness, and gilled look-alikes exist. This note is a hazard summary, not an identification guide; do not eat anything on the strength of a map pin."
+    },
+    "sources": [
+      "European mushroom folklore compilations on the fairy-food and golden-fungus motifs.",
+      "Living foraging custom in the Pacific Northwest and Europe (spot secrecy; seasonal first-find omens).",
+      "Pilz, D., et al., USDA PNW-GTR-576 - the mycorrhizal associations the habitat model is built on."
+    ]
+  },
   "weights_override": {
     "$comment": "The habitat component is 'forest', not 'vegetation'. Host composition is the primary signal so it carries the most weight; terrain is a weak supporting layer for a forest fungus.",
     "weights": {

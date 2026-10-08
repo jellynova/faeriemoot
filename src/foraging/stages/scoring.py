@@ -20,6 +20,7 @@ from shapely.geometry import Point
 
 from ..config import Config
 from ..curves import weighted_mean
+from ..folk_magic import for_manifest
 from ..grid import Grid
 from .forest import CLASS_NAMES as FOREST_CLASS_NAMES
 from .forest import leading_label
@@ -368,6 +369,9 @@ def _write_manifest(cfg, gdf, grid) -> None:
             "habitat_model": cfg.habitat_model,
             "habitat_label": "Host trees" if cfg.habitat_layer == "forest" else "Vegetation",
             "season_months": cfg.species["observations"].get("months"),
+            # Documentary folklore, shown on the site popup. Species-level, so
+            # it travels once in the manifest rather than on every site.
+            "folk_magic": for_manifest(cfg.species),
         },
         "origin": cfg.pipeline["access"]["origin"],
         "weights": cfg.weights["weights"],

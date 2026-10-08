@@ -16,6 +16,8 @@ from typing import Any
 import geopandas as gpd
 from shapely.geometry.base import BaseGeometry
 
+from .folk_magic import validate as validate_folk_magic
+
 
 def _strip_comments(obj: Any) -> Any:
     """Drop ``$comment`` keys so config files can be self-documenting."""
@@ -187,6 +189,10 @@ def load_config(
         pipeline["species"] = str(species)
 
     species = load_json(root / pipeline["species"])
+    # Every profile carries a folk-magic block; validate it here so a typo
+    # fails at startup with the species named, rather than rendering an empty
+    # panel in the map a pipeline run later.
+    validate_folk_magic(species)
     weights = load_json(root / pipeline["weights"])
     weights = _apply_weights_override(weights, species.get("weights_override"), species["id"])
     aoi_path = root / pipeline["aoi"]

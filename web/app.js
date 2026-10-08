@@ -145,6 +145,7 @@
     var sp = m.species || {};
     $("species-line").textContent =
       (sp.common_name || "") + (sp.scientific_name ? " - " + sp.scientific_name : "");
+    renderFolkPanel(sp.folk_magic);
 
     var f = m.filters || {};
     var r = m.ranges || {};
@@ -357,6 +358,66 @@
     return cols.join(",") + "\n" + rows.join("\n") + "\n";
   }
 
+  // ------------------------------------------------- folk magic & folklore
+  // Documentary, historical content shipped in the manifest (see
+  // src/foraging/folk_magic.py). It is framed as folklore wherever it appears,
+  // because that is what it is - not advice.
+  function themeChips(fm) {
+    var themes = (fm.associations || []).map(function (a) { return a.theme_label; });
+    var seen = {}, uniq = [];
+    themes.forEach(function (t) { if (t && !seen[t]) { seen[t] = 1; uniq.push(t); } });
+    if (!uniq.length) return "";
+    return '<span class="chips">' + uniq.map(function (t) {
+      return '<span class="chip">' + esc(t) + "</span>";
+    }).join("") + "</span>";
+  }
+
+  function safetyBox(fm) {
+    var s = (fm && fm.safety) || {};
+    if (!s.note) return "";
+    return '<div class="safety safety-' + esc(s.level || "caution") + '">' +
+      "<strong>" + esc(s.level_label || "") + "</strong> " + esc(s.note) + "</div>";
+  }
+
+  function folkMagicHTML(fm) {
+    if (!fm) return "";
+    var html = '<div class="folk"><h4>Folk magic &amp; folklore</h4>';
+    if ((fm.folk_names || []).length) {
+      html += '<div class="folk-names">' + fm.folk_names.map(esc).join(" &middot; ") + "</div>";
+    }
+    html += themeChips(fm);
+    html += (fm.associations || []).map(function (a) {
+      return '<div class="assoc"><div class="assoc-theme">' + esc(a.theme_label) + "</div>" +
+        "<p>" + esc(a.note) + "</p>" +
+        '<p class="origin">' + esc(a.origin) + "</p></div>";
+    }).join("");
+    html += safetyBox(fm);
+    if ((fm.sources || []).length) {
+      html += '<p class="folk-src">Sources: ' + fm.sources.map(esc).join("; ") + "</p>";
+    }
+    html += '<p class="folk-note">' + esc(fm.disclaimer || "") + "</p></div>";
+    return html;
+  }
+
+  function renderFolkPanel(fm) {
+    var panel = $("folk-panel"), body = $("folk-body");
+    if (!panel || !body) return;
+    if (!fm) { panel.hidden = true; body.innerHTML = ""; return; }
+    var html = "";
+    if ((fm.folk_names || []).length) {
+      html += '<div class="folk-names">' + fm.folk_names.map(esc).join(" &middot; ") + "</div>";
+    }
+    html += themeChips(fm);
+    if ((fm.traditions || []).length) {
+      html += '<p class="folk-trad">Traditions: ' + fm.traditions.map(esc).join("; ") + "</p>";
+    }
+    html += safetyBox(fm);
+    html += '<p class="folk-note">' + esc(fm.disclaimer || "") + "</p>";
+    html += '<p class="folk-hint">Full associations are on each site pin.</p>';
+    body.innerHTML = html;
+    panel.hidden = false;
+  }
+
   function bar(label, value) {
     var v = value === null || value === undefined ? 0 : value;
     return '<div class="bar-row"><span>' + label + "</span>" +
@@ -417,6 +478,8 @@
               "Foraging here may be restricted or prohibited. Verify tenure and " +
               "permission before harvesting.</div>";
     }
+
+    html += folkMagicHTML((current.manifest.species || {}).folk_magic);
 
     html += '<div class="coords">' + lat + ", " + lon +
             ' &middot; <a href="https://www.google.com/maps/search/?api=1&query=' +
