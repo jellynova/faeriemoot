@@ -1,0 +1,125 @@
+{
+  "$comment": "Target profile for an introduced herb of open dry ground. St John's wort is one of the strongest folk-magic entries in the set (the Midsummer plant, fuga daemonum) and one of the more consequential safety entries, because of its drug interactions.",
+  "id": "hypericum_perforatum",
+  "common_name": "St John's wort",
+  "scientific_name": "Hypericum perforatum",
+  "habitat_model": "spectral",
+  "habitat_note": "Open, dry, disturbed ground: roadsides, pasture, field edges, gravel and dry open slopes, valley bottom to lower slopes. An introduced plant that wants full sun and dry soil, scored as open ground with a moderate NDVI floor and a light logging penalty.",
+  "folk_magic": {
+    "folk_names": [
+      "St John's wort",
+      "St John's grass",
+      "hypericum",
+      "chase-devil",
+      "devil's flight",
+      "fuga daemonum"
+    ],
+    "traditions": [
+      "European folk magic and Christian folk practice",
+      "British Isles, German and Slavic folk tradition"
+    ],
+    "associations": [
+      {
+        "theme": "banishing",
+        "note": "The Latin name in the folk record, fuga daemonum - the flight of demons - says what the plant was for: driving out devils, evil spirits and witchcraft. It was hung over doors and windows on St John's Eve to keep evil out of the house for the year, and carried to repel malevolent influence. This is the plant's central magical use and the reason it was gathered on the saint's day rather than any other.",
+        "origin": "European folk magic and Christian folk practice; the fuga daemonum name and the door-hanging custom are recorded across the British, German and Slavic record."
+      },
+      {
+        "theme": "protection",
+        "note": "Gathered at Midsummer - on St John's Eve, traditionally with the dew still on it - and hung in the house, worn on the person, or carried as a protective charm for the year. The red sap that exudes from the crushed flowers was read as the blood of John the Baptist and taken as the sign of the plant's protective power.",
+        "origin": "European folk tradition; the Midsummer gathering, the dew, the door-hanging and the blood-of-John reading are all standard in the folk-herb literature."
+      },
+      {
+        "theme": "divination",
+        "note": "Midsummer was a divinatory season, and St John's wort was gathered into the same bundle of herbs used for love divination and for finding out the year ahead - which plant took root, which wilted, and what that foretold.",
+        "origin": "European folk tradition; the plant appears in the Midsummer divination customs recorded in the British Isles and Central Europe."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "This is the most interaction-prone plant in this set and the caution is not about toxicity. St John's wort induces liver enzymes (CYP3A4 and others) and can substantially reduce the effect of a long list of medicines, including oral contraceptives, warfarin and other blood thinners, transplant and HIV medication, some cancer drugs and antidepressants - and combining it with antidepressants risks serotonin syndrome. It also causes photosensitivity, so grazing animals that eat it can be badly burned, and people can react to sun after taking it. Do not take it alongside any prescription medicine without checking first. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Culpeper, The Complete Herbal (17th c.) and Gerard, Herball (1597) - European medicinal and protective use.",
+      "British, German and Slavic folk-magic compilations for the fuga daemonum name and the Midsummer customs.",
+      "Standard pharmacology references for the CYP3A4 induction and photosensitivity."
+    ]
+  },
+  "weights_override": {
+    "$comment": "A modest aspect weight - the plant's best ground here is the sunny roadside bank - with a wide tolerance so it shades the ranking rather than driving it.",
+    "weights": {
+      "terrain": 0.30,
+      "vegetation": 0.35,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.55,
+      "slope": 0.25,
+      "aspect": 0.20
+    }
+  },
+  "observations": {
+    "taxon_name": "Hypericum perforatum",
+    "genus_fallback": "Hypericum",
+    "$comment": "43 research-grade records in the AOI. Scouler's St John's wort (H. scouleri) is down-weighted and, more to the point, has no records in this AOI at all - it is an interior species that does not reach this valley system, which is why it was not chosen as the target.",
+    "congeners_downweight": [
+      "Hypericum scouleri"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 700,
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "A low-elevation plant in this region, thinning out above the valley slopes.",
+      "hard_min": 200,
+      "optimal_min": 350,
+      "optimal_max": 1100,
+      "hard_max": 1500
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 28,
+      "hard_max": 42
+    },
+    "aspect": {
+      "optimal_bearing_deg": 190.0,
+      "tolerance_deg": 100.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "hard_min": 0.25,
+      "optimal_min": 0.4,
+      "optimal_max": 0.85
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "meadow": 1.0,
+      "open_forest": 0.6,
+      "closed_forest": 0.12,
+      "bare": 0.12
+    },
+    "logging": {
+      "penalty": 0.6,
+      "recovery_years": 15
+    }
+  },
+  "imagery_window_override": null
+}
