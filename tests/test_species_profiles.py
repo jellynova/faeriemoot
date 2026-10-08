@@ -184,3 +184,21 @@ class TestSetCoverage:
                 continue
             if profile.get("forest_labels", {}).get("share"):
                 assert profile.get("habitat_label")
+
+
+class TestModelDispatch:
+    """The three models share one dispatch path in scoring; a missing entry
+    would silently fall back to the vegetation class labels."""
+
+    def test_every_model_has_class_labels_and_a_habitat_label(self):
+        from foraging.stages.scoring import HABITAT_CLASSES, HABITAT_LABELS
+        for layer in MODEL_BLOCK.values():
+            assert layer in HABITAT_CLASSES, layer
+            assert layer in HABITAT_LABELS, layer
+            raster, names, fallback = HABITAT_CLASSES[layer]
+            assert raster and isinstance(names, dict) and fallback
+
+    def test_habitat_layers_are_distinct(self):
+        from foraging.stages.scoring import HABITAT_CLASSES
+        rasters = [v[0] for v in HABITAT_CLASSES.values()]
+        assert len(set(rasters)) == len(rasters), "two models share a class raster"

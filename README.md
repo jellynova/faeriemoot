@@ -4,15 +4,31 @@ Predicts and ranks likely wild-foraging sites by stacking terrain, vegetation,
 access and observation data into a per-site suitability score, then serving the
 ranked sites as clickable pins on an interactive map.
 
-Two targets ship for the West Kootenays, BC — Rossland / Castlegar / Salmo:
+Seventeen species ship for the West Kootenays, BC — Rossland / Castlegar /
+Salmo — all of them plants or fungi with a documented place in folk magic,
+herbalism or folklore. Each is scored on whatever actually limits it:
 
-* **Mountain arnica** (*Arnica latifolia*), a subalpine meadow plant, scored on
-  terrain and its Sentinel-2 vegetation signature.
+* **Mountain arnica** (*Arnica latifolia*), a subalpine meadow plant — terrain
+  and its Sentinel-2 vegetation signature.
 * **Pacific golden chanterelle** (*Cantharellus formosus*), a fall-fruiting
-  mycorrhizal mushroom, scored on terrain and the **host-tree composition** of
-  each forest stand from BC's Vegetation Resources Inventory.
+  mycorrhizal mushroom — the **host-tree composition** of each forest stand
+  from BC's Vegetation Resources Inventory.
+* **Devil's club, stinging nettle, red elderberry** — moisture-obligate plants,
+  scored on **distance to water** from BC's Freshwater Atlas.
+* **Fireweed, yarrow, mullein, Rocky Mountain juniper, western mugwort, St
+  John's wort, prickly rose** — open-ground plants, scored on the canopy
+  continuum.
+* **Western redcedar, Douglas-fir, paper birch**, the epiphytic **old man's
+  beard** lichen, and the **fly agaric** — scored on stand composition, age and
+  canopy closure.
 
-Nothing about that region is hard-coded: the AOI, the target species and the
+Every profile also carries a **folk-magic block**: folk names, the traditions
+the plant is documented in, the associations recorded for it (protection, love,
+prosperity, divination, banishing and the rest), and a plain safety note. That
+is historical and cultural information about folklore, shown on the map so you
+know what you are looking at. It is not medical advice and not magical advice.
+
+Nothing about the region is hard-coded: the AOI, the target species and the
 scoring weights are all swappable config files.
 
 > **This tool describes land tenure, not permission.** A site's land-status
@@ -28,6 +44,8 @@ scoring weights are all swappable config files.
 uv venv && uv pip install -e .        # or: pip install -e .
 forage run                            # arnica, full pipeline, ~2 minutes
 forage run --species config/species/cantharellus_formosus.json   # chanterelle
+forage run --species config/species/oplopanax_horridus.json      # devil's club
+forage run --species config/species/achillea_millefolium.json    # yarrow
 python -m http.server -d web 8000     # then open http://localhost:8000
 ```
 
@@ -40,13 +58,14 @@ anonymous.
 
 Each 30 m cell in the area of interest is scored by four layers, then
 high-scoring cells are clustered into discrete sites and ranked. The habitat
-layer is one of two, chosen by the species profile's `habitat_model`.
+layer is one of three, chosen by the species profile's `habitat_model`.
 
 | Layer | What it contributes | Source |
 |---|---|---|
 | **Terrain** | Elevation band, slope, aspect (per-species preference) | Copernicus GLO-30 DEM via Planetary Computer |
 | **Vegetation** (`spectral`) | Open meadow / open forest vs closed canopy or bare rock | Sentinel-2 L2A, seasonal composite |
-| **Forest** (`host_trees`) | Share of mycorrhizal host trees in the stand, stand age, crown closure | BC Vegetation Resources Inventory (VRI), rank-1 layer |
+| **Forest** (`host_trees`) | Share of the host — or target — trees in the stand, stand age, crown closure | BC Vegetation Resources Inventory (VRI), rank-1 layer |
+| **Riparian** (`riparian`) | Distance to streams, lakes and wetlands, with streams weighted by order; flat ground | BC Freshwater Atlas (FWA) |
 | **Access** | Drive minutes from your origin + least-cost hike from the road | BC Digital Road Atlas, forest tenure roads, OSM trails |
 | **Observations** | Proximity boost from real sightings | iNaturalist research-grade records |
 | **Land status** | Tenure flag — *flagged, never silently down-ranked* | BC parks, ParcelMap BC, forest tenure |
@@ -57,7 +76,7 @@ can judge the trade-off yourself.
 ### Pipeline stages
 
 ```
-terrain → vegetation | forest → access → observations → landstatus → scoring → export
+terrain → vegetation | forest | riparian → access → observations → landstatus → scoring → export
 ```
 
 `vegetation` and `forest` are alternatives: each skips itself unless the
@@ -86,7 +105,7 @@ Everything tunable lives in `config/`.
 | File | Controls |
 |---|---|
 | `config/pipeline.json` | AOI selection, grid resolution, **drive-time origin**, imagery window, site clustering |
-| `config/species/*.json` | Habitat model, elevation band, slope/aspect preference, vegetation thresholds or host-tree table, iNaturalist taxon, per-species weight overrides, validation taxa |
+| `config/species/*.json` | Habitat model, elevation band, slope/aspect preference, vegetation thresholds or host-tree table, iNaturalist taxon, per-species weight overrides, validation taxa, and the **folk-magic block** |
 | `config/weights.json` | Layer weights, hard filters, which land classes are excluded vs flagged |
 
 ### Setting your origin
@@ -131,16 +150,48 @@ First decide what the target's habitat signal actually is:
   target's habitat is visible from orbit — open meadow, a canopy gap, bare
   ground. The vegetation thresholds are the part most worth re-tuning; see the
   modelling notes below for how the current ones were calibrated.
-* **`"habitat_model": "host_trees"`** (copy `cantharellus_formosus.json`) for a
-  mycorrhizal fungus, or anything else that tracks particular tree species. Edit
-  the `forest.host_affinity` table (VRI species codes, matched by longest
+* **`"habitat_model": "host_trees"`** (copy `cantharellus_formosus.json` for a
+  fungus, `thuja_plicata.json` for a tree) for anything that tracks particular
+  tree species — a mycorrhizal fungus, a target tree, or an epiphytic lichen.
+  Edit the `forest.host_affinity` table (VRI species codes, matched by longest
   prefix, so `FD` covers `FDI` and `FDC`), the stand-age knots and the
-  crown-closure band.
+  crown-closure band. For a tree target, the affinity table names the target
+  itself and every other code falls to `default_affinity: 0.0`; set
+  `habitat_label` and `forest_labels.share` so the popup says "Cedar share"
+  rather than "Host share".
+* **`"habitat_model": "riparian"`** (copy `oplopanax_horridus.json`) for a
+  moisture-obligate plant — one whose binding constraint is water rather than
+  greenness. Set the `riparian.distance_m` band, the `stream_order_credit`
+  knots (how much a headwater gully is worth against a mainstem) and the
+  `water_type_credit` for lakes and wetlands. This model downloads no Sentinel-2
+  imagery, so it is the cheapest of the three to run.
 
 A profile's `weights_override` replaces the `weights` and `terrain_subweights`
 sections of `config/weights.json` for that species only. It cannot touch
 access, legality or hard filters, because those layers are shared by every
 species on the AOI.
+
+Every profile must also carry a `folk_magic` block, and `load_config` rejects a
+profile without one:
+
+```json
+"folk_magic": {
+  "folk_names": ["yarrow", "milfoil", "soldier's woundwort"],
+  "traditions": ["European folk magic", "Chinese tradition"],
+  "associations": [
+    { "theme": "divination", "note": "what the plant was used for ...",
+      "origin": "which tradition and literature it is recorded in" }
+  ],
+  "safety": { "level": "caution", "note": "toxicity and drug interactions ..." },
+  "sources": ["..."]
+}
+```
+
+Themes come from a closed vocabulary in `src/foraging/folk_magic.py`, and
+`origin` is required on every association — an unsourced association is how
+European folk practice and Indigenous North American practice get conflated,
+so the schema will not let one through. Safety levels are `none`, `caution`,
+`toxic` and `restricted`.
 
 ---
 
@@ -246,6 +297,35 @@ GPS figure and does not reflect this, so the accuracy filter alone does not
 catch them. A proximity boost around an obscured point boosts a random spot.
 Foragers obscure their finds: every golden-chanterelle record in the Kootenays
 is obscured.
+
+**A moisture-obligate plant is scored by its water, not its colour.** Devil's
+club, nettle and elderberry all want ground beside water on a flat valley floor,
+and NDVI cannot see that — a lush meadow and a lush stream bank are the same
+green. The riparian model reads distance to water from BC's Freshwater Atlas
+instead, with **streams weighted by order**, because a first-order gully that
+runs dry in August is not the same habitat as a fourth-order mainstem. Each cell
+takes the credit of the stream it is *nearest to*, so a seep two cells away beats
+a mainstem across the valley. Two things about the data are worth knowing: FWA's
+stream order 9 is not an order at all but the *areal* representation of a major
+river (the Columbia appears this way), so the credit table clamps at the top
+rather than reading 9 as an unknown; and wetlands are treated as habitat rather
+than as water to exclude, because a skunk-cabbage swamp is prime devil's-club
+ground. Only open lake and river water is masked out.
+
+**Folk magic is content, not a signal.** The `folk_magic` block on each profile
+never touches the score. It is documentary information — folk names, the
+traditions a plant is documented in, the associations recorded for it, and a
+hazard note — carried in the manifest and rendered on the site popup. Three
+rules were applied when writing them, and the schema enforces the first: every
+association names its `origin`, so European folk practice and Indigenous North
+American practice are labelled rather than blended; the profiles say so when a
+plant's magical record is thin (fireweed, the beard lichen) instead of inventing
+an association to fill the field; and every block carries a safety note, because
+several of these plants are dangerous — arnica is toxic taken internally, red
+elderberry more so than the European elder its lore comes from, St John's wort
+interacts with a long list of prescription medicines, and the fly agaric is a
+deliriant poison. None of it is medical or magical advice, and the UI says so
+wherever it appears.
 
 **Hike cost is isotropic.** Tobler's hiking function is applied to terrain
 slope magnitude, not slope along the direction of travel — the standard GIS
@@ -472,13 +552,22 @@ Builds made before outputs were split by species sit directly under
 ## Map UI
 
 Leaflet, vendored locally so it works offline. Toggleable layers for
-suitability, elevation, slope, aspect, NDVI and vegetation class (spectral
-targets) or forest class, host-tree share and stand age (host-tree targets),
-years since logging, land tenure, roads, trails, protected areas and
-observations. Filters
+suitability, elevation, slope, aspect, and then whichever habitat layers the
+species uses: NDVI and vegetation class (spectral targets), forest class,
+host-tree share and stand age (host-tree targets), or riparian class and
+distance to water (riparian targets). Plus years since logging, land tenure,
+roads, trails, protected areas and observations. Filters
 for minimum score, max drive time, max hike distance, elevation band, hiding
 flagged land and hiding recently logged ground. Vector layers are fetched only
 when switched on, since roads alone is several MB.
+
+**Folk magic on the pin.** Clicking a site opens the usual per-site data and,
+below it, the species' folk-magic panel: folk names, theme chips, each recorded
+association with the tradition it comes from, and the safety note. A sidebar
+panel shows the same block for the species currently loaded, so two species can
+be compared without clicking a pin. The panel is framed as folklore wherever it
+appears — it is not advice, and the map does not tell you anything is safe to
+touch or eat.
 
 **Getting sites into the field:** the ranked list exports as **GPX** (waypoints
 for a GPS or phone, carrying elevation, score, drive/hike and land status in

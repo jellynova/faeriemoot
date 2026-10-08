@@ -153,6 +153,19 @@ Slope comes from the DEM the terrain stage already built, so a riparian run
 downloads no Sentinel-2 imagery at all — it is the cheapest habitat model of
 the three.
 
+A first real run against the West Kootenays AOI is worth recording, because it
+says something about how much the layer discriminates. The AOI returned 9,069
+stream segments, 330 lakes, 59 river polygons and 188 wetlands, and **79% of
+the AOI turned out to lie within 350 m of some water** — this is a wet, deeply
+dissected landscape, not a dry one. So the candidate pool is large and the
+median riparian score is low (0.10); what separates the top sites is not
+"near water or not" but proximity *within* the band and, more sharply, flat
+ground, since the slope credit zeroes out the steep gullies that most of those
+streams run through. The percentile-based site selection then takes the best
+1%. The practical consequence: for these species the map is a *ranking* of
+riparian ground, and the top pins are the floodplain and bench sites rather
+than the banks of the nearest ditch.
+
 ## Species checklist
 
 Each row is one commit. Habitat model and the folk-magic themes carried are
@@ -163,18 +176,61 @@ listed so the set's coverage is visible at a glance.
 | *Oplopanax horridus* | devil's club | riparian | protection, spirit-work, healing, luck | added |
 | *Urtica dioica* | stinging nettle | riparian | protection, banishing, weather, healing | added |
 | *Sambucus racemosa* | red elderberry | riparian | protection, banishing, death, prosperity | added |
-| *Chamaenerion angustifolium* | fireweed | spectral | healing | planned |
-| *Achillea millefolium* | yarrow | spectral | divination, love, protection, courage | planned |
-| *Verbascum thapsus* | mullein | spectral | protection, banishing, divination | planned |
-| *Juniperus scopulorum* | Rocky Mountain juniper | spectral | purification, protection, banishing | planned |
-| *Artemisia ludoviciana* | western mugwort | spectral | purification, dreams, protection | planned |
-| *Hypericum perforatum* | St John's wort | spectral | banishing, protection, divination | planned |
-| *Rosa acicularis* | prickly rose | spectral | love, protection, healing | planned |
-| *Thuja plicata* | western redcedar | host_trees | purification, protection, spirit-work | planned |
-| *Pseudotsuga menziesii* | Douglas-fir | host_trees | protection, purification, healing | planned |
-| *Betula papyrifera* | paper birch | host_trees | protection, purification, spirit-work | planned |
-| *Alectoria sarmentosa* | old man's beard | host_trees | protection, healing | planned |
-| *Amanita muscaria* | fly agaric | host_trees | spirit-work, divination, luck | planned |
+| *Chamaenerion angustifolium* | fireweed | spectral | healing | added |
+| *Achillea millefolium* | yarrow | spectral | divination, love, protection, courage | added |
+| *Verbascum thapsus* | mullein | spectral | protection, banishing, divination | added |
+| *Juniperus scopulorum* | Rocky Mountain juniper | spectral | purification, protection, banishing | added |
+| *Artemisia ludoviciana* | western mugwort | spectral | purification, dreams, protection | added |
+| *Hypericum perforatum* | St John's wort | spectral | banishing, protection, divination | added |
+| *Rosa acicularis* | prickly rose | spectral | love, protection, healing | added |
+| *Thuja plicata* | western redcedar | host_trees | purification, protection, spirit-work | added |
+| *Pseudotsuga menziesii* | Douglas-fir | host_trees | protection, purification, healing | added |
+| *Betula papyrifera* | paper birch | host_trees | protection, purification, spirit-work | added |
+| *Alectoria sarmentosa* | old man's beard | host_trees | protection, healing | added |
+| *Amanita muscaria* | fly agaric | host_trees | spirit-work, divination, luck | added |
+
+## The folk-magic block (Part 2)
+
+Every profile — the two that existed and all fifteen new ones — carries a
+`folk_magic` block:
+
+```json
+"folk_magic": {
+  "folk_names": ["..."],
+  "traditions": ["..."],
+  "associations": [
+    { "theme": "protection", "note": "what it was used for", "origin": "where that is recorded" }
+  ],
+  "safety": { "level": "caution", "note": "toxicity and interactions" },
+  "sources": ["..."]
+}
+```
+
+Design decisions worth recording:
+
+* **`origin` is required on every association.** This is the schema's main
+  editorial job. The plants in this set sit between two traditions that are
+  easy to blend — European folk magic and Indigenous North American practice —
+  and blending them misattributes one to the other. Requiring a stated origin
+  forces the distinction to be made in the data, and a test fails any profile
+  that omits it.
+* **The theme vocabulary is closed** (`src/foraging/folk_magic.py`): protection,
+  warding, banishing, purification, love, fertility, prosperity, luck,
+  divination, dreams, courage, healing, spirit-work, death, weather, hunting.
+  An invented theme is a typo or an editorial slip, and validation rejects it
+  rather than letting an unmapped chip render blank.
+* **Safety levels are ordered and load-bearing**: `none`, `caution`, `toxic`,
+  `restricted`. They are also CSS classes, so the level has to be one of the
+  four. The `restricted` level is used once, for the fly agaric.
+* **Validation runs in `load_config`**, so a bad block fails at startup with the
+  species named rather than producing an empty panel after a full pipeline run.
+* **The block travels once per species in the manifest**, not once per site in
+  the GeoJSON: it is species-level information and duplicating it onto 400 pins
+  would bloat the file for nothing.
+* **The UI frames it as folklore in both places it appears** — the site popup
+  and the sidebar species panel — using a disclaimer string that ships with the
+  data rather than being written into the JavaScript, so the framing cannot
+  drift between the map and the docs.
 
 ## Progress log
 
@@ -183,7 +239,7 @@ listed so the set's coverage is visible at a glance.
 | 1 | Plan, presence research, this log | done |
 | 2 | `folk_magic` schema + validation + manifest export + UI panel | done |
 | 3 | `riparian` habitat model (new stage) | done |
-| 4 | New species profiles, one commit each | not started |
-| 5 | README + docs for the new models and data | not started |
+| 4 | New species profiles, one commit each | done (15) |
+| 5 | README + docs for the new models and data | in progress |
 
 See the commit history for the per-species steps; each commit runs the suite.
