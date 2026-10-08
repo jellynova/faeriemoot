@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pytest
 
 from foraging.config import _apply_weights_override, load_config
@@ -89,3 +90,35 @@ def test_filter_usable_drops_obscured_and_coarse_keeps_unknown():
     )
     kept = filter_usable(obs, max_accuracy_m=1000.0, log=lambda *a: None)
     assert list(kept.index) == [0, 3]
+
+
+class TestTargetMatching:
+    def test_infraspecific_records_are_the_target(self):
+        from foraging.stages.observations import WEIGHT_EXACT, _weight_for, is_target
+
+        assert is_target("Amanita muscaria flavivolvata", "Amanita muscaria")
+        assert _weight_for("Amanita muscaria flavivolvata", "Amanita muscaria", set()) == WEIGHT_EXACT
+
+    def test_genus_target_takes_its_species(self):
+        from foraging.stages.observations import is_target
+
+        assert is_target("Rosa nutkana", "Rosa")
+        # A name prefix is not a genus: "Rosaceae" is not "Rosa".
+        assert not is_target("Rosaceae", "Rosa")
+        assert not is_target(None, "Rosa")
+
+    def test_downweight_beats_genus_match(self):
+        from foraging.stages.observations import WEIGHT_CONGENER, _weight_for
+
+        # Matches the shipped rosa profile: genus fallback Rosa, R. nutkana down-weighted.
+        assert _weight_for("Rosa nutkana", "Rosa", {"Rosa nutkana"}) == WEIGHT_CONGENER
+
+
+def test_ndvi_hard_max_is_optional():
+    from foraging.curves import trapezoid
+
+    ndvi = np.array([0.3, 0.6, 0.9])
+    open_top = trapezoid(ndvi, 0.1, 0.2, 0.5, None)
+    capped = trapezoid(ndvi, 0.1, 0.2, 0.5, 0.9)
+    assert open_top.tolist() == [1.0, 1.0, 1.0]
+    assert capped.tolist() == pytest.approx([1.0, 0.75, 0.0])
