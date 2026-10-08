@@ -25,7 +25,20 @@ from ..grid import Grid
 from .forest import CLASS_NAMES as FOREST_CLASS_NAMES
 from .forest import leading_label
 from .landstatus import CLASS_KEYS, CLASS_LABELS
+from .riparian import CLASS_NAMES as RIPARIAN_CLASS_NAMES
 from .vegetation import CLASS_NAMES as VEG_CLASS_NAMES
+
+# Per habitat model: the categorical raster, its code->label table, and what to
+# say when the cell carries no code. Keeps the three models from leaking into
+# each other's popup.
+HABITAT_CLASSES = {
+    "vegetation": ("veg_class", VEG_CLASS_NAMES, "unknown"),
+    "forest": ("forest_class", FOREST_CLASS_NAMES, "no inventory"),
+    "riparian": ("riparian_class", RIPARIAN_CLASS_NAMES, "unknown"),
+}
+
+# Human label for the habitat layer, shown against the habitat score bar.
+HABITAT_LABELS = {"vegetation": "Vegetation", "forest": "Host trees", "riparian": "Water proximity"}
 
 COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
@@ -148,6 +161,8 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         "canopy_closure": _read(cfg, "canopy_closure"),
         "veg_class": _read(cfg, "veg_class"),
         "forest_class": _read(cfg, "forest_class"),
+        "riparian_class": _read(cfg, "riparian_class"),
+        "distance_to_water": _read(cfg, "distance_to_water"),
         "host_fraction": _read(cfg, "host_fraction"),
         "stand_age": _read(cfg, "stand_age"),
         "crown_closure_pct": _read(cfg, "crown_closure_pct"),
@@ -200,10 +215,8 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         tenure_code = int(at("land_tenure", 0) or 0)
         tenure_key = CLASS_KEYS.get(tenure_code, "crown_land")
         aspect = at("aspect")
-        if habitat == "forest":
-            habitat_class = FOREST_CLASS_NAMES.get(int(at("forest_class", 0) or 0), "no inventory")
-        else:
-            habitat_class = VEG_CLASS_NAMES.get(int(at("veg_class", 0) or 0), "unknown")
+        raster, names, fallback = HABITAT_CLASSES.get(habitat, HABITAT_CLASSES["vegetation"])
+        habitat_class = names.get(int(at(raster, 0) or 0), fallback)
         lead = at("leading_species", 0)
 
         rows.append({
@@ -218,6 +231,7 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "ndvi": None if at("ndvi") is None else round(float(at("ndvi")), 3),
             "canopy_closure": None if at("canopy_closure") is None else round(float(at("canopy_closure")), 3),
             "veg_class": habitat_class,
+            "water_distance_m": None if at("distance_to_water") is None else round(float(at("distance_to_water"))),
             "host_fraction": None if at("host_fraction") is None else round(float(at("host_fraction")), 2),
             "leading_species": leading_label(int(lead) if lead is not None else None, at("leading_species_pct")),
             "stand_age_years": None if at("stand_age") is None else int(at("stand_age")),
@@ -367,7 +381,7 @@ def _write_manifest(cfg, gdf, grid) -> None:
             "scientific_name": cfg.species.get("scientific_name"),
             "habitat_note": cfg.species.get("habitat_note"),
             "habitat_model": cfg.habitat_model,
-            "habitat_label": "Host trees" if cfg.habitat_layer == "forest" else "Vegetation",
+            "habitat_label": HABITAT_LABELS.get(cfg.habitat_layer, "Habitat"),
             "season_months": cfg.species["observations"].get("months"),
             # Documentary folklore, shown on the site popup. Species-level, so
             # it travels once in the manifest rather than on every site.

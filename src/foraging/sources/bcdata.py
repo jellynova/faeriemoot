@@ -42,6 +42,13 @@ LAYERS = {
     # Vegetation Resources Inventory, rank-1 layer: one polygon per stand with
     # up to six tree species and their percentages, stand age and crown closure.
     "vri": "WHSE_FOREST_VEGETATION.VEG_COMP_LYR_R1_POLY",
+    # Freshwater Atlas. Streams are lines with a STREAM_ORDER; lakes, rivers and
+    # wetlands are polygons. Used by the riparian stage to score distance to
+    # water for moisture-obligate plants.
+    "water_streams": "WHSE_BASEMAPPING.FWA_STREAM_NETWORKS_SP",
+    "water_wetlands": "WHSE_BASEMAPPING.FWA_WETLANDS_POLY",
+    "water_lakes": "WHSE_BASEMAPPING.FWA_LAKES_POLY",
+    "water_rivers": "WHSE_BASEMAPPING.FWA_RIVERS_POLY",
 }
 
 # Unique feature keys, in order of preference, for de-duplicating features that

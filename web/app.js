@@ -165,8 +165,10 @@
     var origin = m.origin || {};
     var habitatSource = sp.habitat_model === "host_trees"
       ? "Host trees from the BC Vegetation Resources Inventory."
-      : "Imagery " + (w.window_start || "") + " to " + (w.window_end || "") +
-        " across " + ((w.years || []).join(", ")) + ".";
+      : sp.habitat_model === "riparian"
+        ? "Water proximity from BC's Freshwater Atlas (streams, lakes, wetlands)."
+        : "Imagery " + (w.window_start || "") + " to " + (w.window_end || "") +
+          " across " + ((w.years || []).join(", ")) + ".";
     $("provenance").textContent =
       "Drive times from " + (origin.name || "origin") + ". " + habitatSource;
 
@@ -345,6 +347,7 @@
   function toCSV(feats) {
     var cols = ["rank", "score", "lat", "lon", "elevation_m", "aspect_compass", "slope_deg",
                 "veg_class", "leading_species", "host_fraction", "stand_age_years",
+                "water_distance_m",
                 "years_since_logging", "area_ha", "drive_minutes", "hike_km",
                 "hike_minutes", "land_status_label", "inat_nearby"];
     var rows = feats.map(function (f) {
@@ -425,8 +428,35 @@
            Math.round(v * 100) + '%"></span></span><span>' + v.toFixed(2) + "</span></div>";
   }
 
+  function habitatModel() {
+    return ((current.manifest.species || {}).habitat_model) || "spectral";
+  }
+
   function isHostModel() {
-    return ((current.manifest.species || {}).habitat_model) === "host_trees";
+    return habitatModel() === "host_trees";
+  }
+
+  // Per-model detail rows. Each habitat model measures a different thing, so a
+  // riparian pin has no NDVI worth showing and a forest pin has no water
+  // distance; showing the other model's rows would be noise at best.
+  function habitatRows(p) {
+    var model = habitatModel();
+    if (model === "host_trees") {
+      return "<dt>Leading tree</dt><dd>" + (p.leading_species || "-") + "</dd>" +
+        "<dt>Host share</dt><dd>" + fmt(p.host_fraction === null ? null : p.host_fraction * 100, 0, "%") + "</dd>" +
+        "<dt>Stand age</dt><dd>" + fmt(p.stand_age_years, 0, " yr") + "</dd>";
+    }
+    if (model === "riparian") {
+      return "<dt>Distance to water</dt><dd>" +
+        (p.water_distance_m === null || p.water_distance_m === undefined
+          ? "-" : p.water_distance_m + " m") + "</dd>";
+    }
+    return "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>";
+  }
+
+  function habitatClassLabel() {
+    var model = habitatModel();
+    return model === "host_trees" ? "Forest" : model === "riparian" ? "Water" : "Vegetation";
   }
 
   function popupHTML(p, coords) {
@@ -440,16 +470,11 @@
       "<dl>" +
       "<dt>Aspect</dt><dd>" + (p.aspect_compass || "-") + " (" + fmt(p.aspect_deg) + "&deg;)</dd>" +
       "<dt>Slope</dt><dd>" + fmt(p.slope_deg, 1, "&deg;") + "</dd>" +
-      "<dt>" + (hostModel ? "Forest" : "Vegetation") + "</dt><dd>" + (p.veg_class || "-") + "</dd>" +
-      (hostModel
-        ? "<dt>Leading tree</dt><dd>" + (p.leading_species || "-") + "</dd>" +
-          "<dt>Host share</dt><dd>" + fmt(p.host_fraction === null ? null : p.host_fraction * 100, 0, "%") + "</dd>" +
-          "<dt>Stand age</dt><dd>" + fmt(p.stand_age_years, 0, " yr") + "</dd>"
-        : "") +
+      "<dt>" + habitatClassLabel() + "</dt><dd>" + (p.veg_class || "-") + "</dd>" +
+      habitatRows(p) +
       (p.on_cutblock
         ? "<dt>Logged</dt><dd>" + p.years_since_logging + " yr ago</dd>"
         : "") +
-      (hostModel ? "" : "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>") +
       "<dt>Patch area</dt><dd>" + fmt(p.area_ha, 1, " ha") + "</dd>" +
       "<dt>Drive</dt><dd>" + minutesLabel(p.drive_minutes) + "</dd>" +
       "<dt>Hike</dt><dd>" + fmt(p.hike_km, 2, " km") + " / " + minutesLabel(p.hike_minutes) + "</dd>" +
@@ -464,13 +489,16 @@
       "</div>";
 
     if (p.on_cutblock && p.years_since_logging !== null && p.years_since_logging < 45) {
+      var why = hostModel
+        ? "Harvest removes the host trees; the stand-age credit already " +
+          "accounts for how long they take to come back."
+        : habitatModel() === "riparian"
+          ? "The riparian model scores water proximity and slope, so it does " +
+            "not penalise logging here - check the ground before trusting it."
+          : "Open ground here is harvest regrowth, not natural meadow - the " +
+            "score is already penalised for this.";
       html += '<div class="flagbox"><strong>Regenerating cutblock</strong><br>' +
-              "Logged " + p.years_since_logging + " years ago. " +
-              (hostModel
-                ? "Harvest removes the host trees; the stand-age credit already " +
-                  "accounts for how long they take to come back."
-                : "Open ground here is harvest regrowth, not natural meadow - the " +
-                  "score is already penalised for this.") + "</div>";
+              "Logged " + p.years_since_logging + " years ago. " + why + "</div>";
     }
 
     if (p.land_flagged) {

@@ -34,10 +34,17 @@ def load_json(path: Path) -> dict:
 
 
 # Which stage supplies the habitat component, by species ``habitat_model``.
+# Each model answers "what actually limits this species?", which differs:
 # "spectral" reads the target's own signature off Sentinel-2 (right for a
-# meadow plant); "host_trees" scores mycorrhizal host composition from the
-# forest inventory (right for a fungus, whose own signature is invisible).
-HABITAT_LAYERS = {"spectral": "vegetation", "host_trees": "forest"}
+# meadow plant); "host_trees" scores tree composition from the forest inventory
+# (right for a mycorrhizal fungus, a target tree, or an epiphytic lichen);
+# "riparian" scores proximity to streams, lakes and wetlands (right for a
+# moisture-obligate plant, whose binding constraint is water, not greenness).
+HABITAT_LAYERS = {
+    "spectral": "vegetation",     # the target's own reflectance (Sentinel-2)
+    "host_trees": "forest",       # tree composition from the forest inventory (VRI)
+    "riparian": "riparian",       # proximity to water (BC Freshwater Atlas)
+}
 
 # Only these weights sections may be overridden per species. Access and land
 # status are computed once per AOI and shared between species, so letting a

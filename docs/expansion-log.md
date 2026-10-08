@@ -127,13 +127,39 @@ unchanged.
 
 ---
 
+## The riparian model
+
+Water proximity comes from BC's **Freshwater Atlas** (FWA): streams as lines
+with a `STREAM_ORDER`, lakes/rivers/wetlands as polygons. Verified live against
+the WFS before it was wired in — all four layers return data and the geometry
+column is `GEOMETRY`.
+
+Three things about the data shaped the design:
+
+* **Stream order matters.** Of 526 stream segments in an 8 km test box, 267
+  were first-order and only 25 were fifth-order. A first-order gully is often
+  dry by midsummer; a fourth-order mainstem is not. Each cell therefore takes
+  the credit of the stream it is *nearest to*, so a seep next door beats a
+  mainstem across the valley.
+* **Order 9 is not an order.** It marks FWA's *areal* representation of a major
+  river — the Columbia appears this way — so the credit table clamps at the
+  top rather than reading 9 as an unknown. This is documented in the stage
+  because it looks like a bug otherwise.
+* **Wetlands are habitat, not water to exclude.** A skunk-cabbage swamp is
+  prime devil's-club ground, so only open lake/river water is masked out;
+  wetlands score.
+
+Slope comes from the DEM the terrain stage already built, so a riparian run
+downloads no Sentinel-2 imagery at all — it is the cheapest habitat model of
+the three.
+
 ## Progress log
 
 | # | Step | Status |
 |---|---|---|
 | 1 | Plan, presence research, this log | done |
 | 2 | `folk_magic` schema + validation + manifest export + UI panel | done |
-| 3 | `riparian` habitat model (new stage) | not started |
+| 3 | `riparian` habitat model (new stage) | done |
 | 4 | New species profiles, one commit each | not started |
 | 5 | README + docs for the new models and data | not started |
 
