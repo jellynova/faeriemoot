@@ -153,6 +153,29 @@ Slope comes from the DEM the terrain stage already built, so a riparian run
 downloads no Sentinel-2 imagery at all — it is the cheapest habitat model of
 the three.
 
+## Species checklist
+
+Each row is one commit. Habitat model and the folk-magic themes carried are
+listed so the set's coverage is visible at a glance.
+
+| Species | Common name | Model | Themes | Status |
+|---|---|---|---|---|
+| *Oplopanax horridus* | devil's club | riparian | protection, spirit-work, healing, luck | added |
+| *Urtica dioica* | stinging nettle | riparian | protection, banishing, weather, healing | added |
+| *Sambucus racemosa* | red elderberry | riparian | protection, banishing, death, prosperity | added |
+| *Chamaenerion angustifolium* | fireweed | spectral | healing | planned |
+| *Achillea millefolium* | yarrow | spectral | divination, love, protection, courage | planned |
+| *Verbascum thapsus* | mullein | spectral | protection, banishing, divination | planned |
+| *Juniperus scopulorum* | Rocky Mountain juniper | spectral | purification, protection, banishing | planned |
+| *Artemisia ludoviciana* | western mugwort | spectral | purification, dreams, protection | planned |
+| *Hypericum perforatum* | St John's wort | spectral | banishing, protection, divination | planned |
+| *Rosa acicularis* | prickly rose | spectral | love, protection, healing | planned |
+| *Thuja plicata* | western redcedar | host_trees | purification, protection, spirit-work | planned |
+| *Pseudotsuga menziesii* | Douglas-fir | host_trees | protection, purification, healing | planned |
+| *Betula papyrifera* | paper birch | host_trees | protection, purification, spirit-work | planned |
+| *Alectoria sarmentosa* | old man's beard | host_trees | protection, healing | planned |
+| *Amanita muscaria* | fly agaric | host_trees | spirit-work, divination, luck | planned |
+
 ## Progress log
 
 | # | Step | Status |
