@@ -3,8 +3,23 @@
   "id": "oplopanax_horridus",
   "common_name": "Devil's club",
   "scientific_name": "Oplopanax horridus",
-  "habitat_model": "riparian",
-  "habitat_note": "Wet, shaded understory: stream banks, seepage slopes, alluvial terraces and swamp margins in low- to mid-elevation conifer forest, mostly below ~1000 m. The binding constraint is water - it wants its roots in or beside moving water - and secondarily flat ground, since it does not grow on the cutbank above the stream. Scored on distance to water (streams weighted by order, so a reliable third-order creek counts for more than a headwater gully) times slope, with the terrain layer supplying the elevation band.",
+  "habitat_model": "host_trees",
+  "habitat_note": "Wet, shaded understory: stream banks, seepage slopes, alluvial terraces and swamp margins in low- to mid-elevation conifer forest, mostly below ~1000 m. Scored on two signals, because the plant needs both: the stand it grows under - cedar-led wet forest from the BC forest inventory, used as an *indicator* of that forest type rather than as a host, since cedar hosts nothing - and the water it grows beside, from the moisture component. The stand says which forest type this is; the moisture component says whether this particular patch is a seep or a dry slope within it.",
+  "weights_override": {
+    "$comment": "Two signals because the plant needs both: the wet-forest stand it grows under and the water it grows beside. Aspect is zero-weighted - which way the ground faces is already encoded in which trees are present and how wet the ground is.",
+    "weights": {
+      "terrain": 0.20,
+      "forest": 0.35,
+      "moisture": 0.25,
+      "access": 0.10,
+      "observations": 0.10
+    },
+    "terrain_subweights": {
+      "elevation": 0.75,
+      "slope": 0.25,
+      "aspect": 0.0
+    }
+  },
   "folk_magic": {
     "$comment": "The strongest protective plant of the Northwest Coast, so the associations here are mostly Indigenous and are labelled as such rather than folded into generic 'herbal lore'.",
     "folk_names": [
@@ -50,20 +65,6 @@
       "Moerman, D., Native American Ethnobotany - compiled ethnographic records."
     ]
   },
-  "weights_override": {
-    "$comment": "The habitat component is 'riparian'. Water proximity is the primary signal; terrain is a weak supporting layer. Aspect is zero-weighted: for a plant whose constraint is water and shade, which way the ground faces is not the binding variable, and the block below is a placeholder the terrain stage requires.",
-    "weights": {
-      "terrain": 0.25,
-      "riparian": 0.45,
-      "access": 0.15,
-      "observations": 0.15
-    },
-    "terrain_subweights": {
-      "elevation": 0.75,
-      "slope": 0.25,
-      "aspect": 0.0
-    }
-  },
   "observations": {
     "taxon_name": "Oplopanax horridus",
     "genus_fallback": "Oplopanax",
@@ -100,33 +101,80 @@
       "flat_slope_deg": 3.0
     }
   },
-  "riparian": {
-    "distance_m": {
-      "$comment": "Full credit within 80 m of water and nothing beyond 350 m. Devil's club hugs the bank: the far side of a wide floodplain is not its habitat even though it is 'near' the river.",
-      "optimal_max": 80,
-      "hard_max": 350
+  "forest": {
+    "host_label": "cedar",
+    "host_label_plural": "cedars",
+    "$comment_label": "The label is deliberate and the affinity table is an indicator, not a host relationship: devil's club is not a mycorrhizal associate of cedar - cedar forms arbuscular associations and hosts nothing. Cedar-led stands are used here as a marker of the wet, mild, low-elevation forest type this species belongs to, which is why the UI says 'cedar-rich forest' rather than 'host-rich forest'. Hemlock and the other wet-conifer associates get moderate credit because they occur in the same stands.",
+    "host_affinity": {
+      "CW": 1.0,
+      "HW": 0.7,
+      "BL": 0.6,
+      "BG": 0.5,
+      "BA": 0.5,
+      "B": 0.5,
+      "SS": 0.6,
+      "SX": 0.5,
+      "SE": 0.5,
+      "S": 0.5,
+      "TW": 0.5,
+      "LW": 0.4,
+      "FD": 0.4,
+      "PL": 0.3,
+      "PY": 0.2,
+      "AT": 0.5,
+      "AC": 0.5,
+      "DR": 0.5,
+      "MB": 0.5,
+      "EP": 0.4
     },
-    "slope_deg": {
-      "$comment": "Floodplain flat. Steeper than 25 degrees is a cutbank, not a terrace.",
-      "optimal_max": 8,
-      "hard_max": 25
+    "default_affinity": 0.0,
+    "host_fraction": {
+      "$comment": "A stand below a 20% indicator share is not the wet-forest type; full credit at 60%, where the stand is dominated by it.",
+      "hard_min": 0.2,
+      "saturation": 0.6
     },
-    "stream_order_credit": {
-      "$comment": "Devil's club wants reliable water, so even a first-order stream gets some credit (they are often spring-fed in this region) but a third-order creek is worth much more. See the stage docstring on FWA order 9.",
+    "stand_age_credit": {
+      "$comment_knots": "Devil's club is an old-forest understory plant: nothing in fresh regeneration, and the humid shaded conditions it wants take decades to develop.",
       "knots": [
-        [1, 0.3],
-        [3, 0.8],
-        [5, 1.0]
+        [0, 0.0],
+        [30, 0.4],
+        [90, 1.0],
+        [500, 0.9]
       ]
     },
-    "water_type_credit": {
-      "$comment": "Wetlands and seeps are as good as a creek for this species - a skunk-cabbage swamp is prime ground.",
-      "lake_river": 1.0,
-      "wetland": 1.0
+    "crown_closure_pct": {
+      "$comment": "Needs shade - it is a closed-canopy understory plant - so the floor is high and dense canopy is fully credited.",
+      "hard_min": 20,
+      "optimal_min": 45,
+      "optimal_max": 100,
+      "hard_max": null
     },
-    "hard_filters": {
-      "enforce_water_max": true
-    }
+    "missing_attribute_credit": 0.5
+  },
+  "moisture": {
+    "$comment": "The water half of the plant's requirement. Stream order is left at 1 - any mapped watercourse counts - because devil's club follows seepage lines as much as creeks, which is what the topographic-position term is for: a hollow or toe slope collects water whether or not a stream is mapped there. hard_max_m makes proximity a requirement rather than a preference: beyond 350 m from any water this is not devil's club ground, however good the stand looks.",
+    "water_distance_m": {
+      "optimal_max": 80,
+      "zero_at": 400,
+      "hard_max_m": 350
+    },
+    "tpi": {
+      "radius_m": 120,
+      "wet_at_m": -4.0,
+      "dry_at_m": 6.0
+    },
+    "blend": {
+      "water": 0.7,
+      "tpi": 0.3
+    },
+    "min_credit": 0.1,
+    "min_stream_order": 1,
+    "water_features": [
+      "streams",
+      "lakes",
+      "rivers",
+      "wetlands"
+    ]
   },
   "imagery_window_override": null
 }

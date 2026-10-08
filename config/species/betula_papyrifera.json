@@ -5,10 +5,6 @@
   "scientific_name": "Betula papyrifera",
   "habitat_model": "host_trees",
   "habitat_note": "Paper birch is a pioneer hardwood of moist, disturbed and early-successional ground - burns, cutblocks, stream terraces, swamp edges and the margins of wet forest - and it declines as the conifers close over it. Scored on its share of the stand from the BC forest inventory, times stand age and crown closure, with the age curve falling away in old stands because birch is short-lived.",
-  "habitat_label": "Birch stands",
-  "forest_labels": {
-    "share": "Birch share"
-  },
   "folk_magic": {
     "folk_names": [
       "paper birch",
@@ -98,6 +94,8 @@
     }
   },
   "forest": {
+    "host_label": "birch",
+    "host_label_plural": "birches",
     "host_affinity": {
       "$comment": "Birch is the target, so EP (paper birch) is the only code that counts. Note that the fly agaric profile gives EP a high affinity for the opposite reason: there the birch is the host for a fungus, here it is the thing being looked for.",
       "EP": 1.0

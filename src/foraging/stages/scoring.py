@@ -22,23 +22,26 @@ from ..config import Config
 from ..curves import weighted_mean
 from ..folk_magic import for_manifest
 from ..grid import Grid
-from .forest import CLASS_NAMES as FOREST_CLASS_NAMES
+from .forest import class_names as forest_class_names
 from .forest import leading_label
 from .landstatus import CLASS_KEYS, CLASS_LABELS
-from .riparian import CLASS_NAMES as RIPARIAN_CLASS_NAMES
 from .vegetation import CLASS_NAMES as VEG_CLASS_NAMES
 
-# Per habitat model: the categorical raster, its code->label table, and what to
-# say when the cell carries no code. Keeps the three models from leaking into
-# each other's popup.
-HABITAT_CLASSES = {
-    "vegetation": ("veg_class", VEG_CLASS_NAMES, "unknown"),
-    "forest": ("forest_class", FOREST_CLASS_NAMES, "no inventory"),
-    "riparian": ("riparian_class", RIPARIAN_CLASS_NAMES, "unknown"),
-}
+# Human label for the habitat score bar, by habitat layer. A forest profile
+# may override it with ``forest.host_label`` (see habitat_label_for), so a tree
+# target does not read as a mushroom host.
+HABITAT_LABELS = {"vegetation": "Vegetation", "forest": "Host trees"}
 
-# Human label for the habitat layer, shown against the habitat score bar.
-HABITAT_LABELS = {"vegetation": "Vegetation", "forest": "Host trees", "riparian": "Water proximity"}
+
+def habitat_label_for(cfg: Config) -> str:
+    """Label for the habitat bar: the profile's own words, or a sane default."""
+    explicit = cfg.species.get("habitat_label")
+    if explicit:
+        return explicit
+    host_label = (cfg.species.get("forest") or {}).get("host_label")
+    if host_label and cfg.habitat_layer == "forest":
+        return f"{host_label[0].upper()}{host_label[1:]} stands"
+    return HABITAT_LABELS.get(cfg.habitat_layer, "Habitat")
 
 COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
@@ -81,6 +84,8 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
         "access": _read(cfg, "score_access"),
         "observations": _read_component(cfg, "score_observations"),
     }
+    for key in cfg.optional_layers:
+        components[key] = _read_component(cfg, f"score_{key}")
     missing = [k for k, v in components.items() if v is None]
     if missing:
         raise RuntimeError(f"missing stage output(s): {', '.join(missing)} - run those stages first")
@@ -88,9 +93,10 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     weights = cfg.weights["weights"]
     score = weighted_mean(components, weights).astype("float32")
 
-    # Terrain and the habitat layer carry the hard filters; a cell rejected by
-    # either is not a candidate at all, regardless of how it scores elsewhere.
-    for key in ("terrain", habitat):
+    # Terrain, the habitat layer and any optional layer carry the hard filters;
+    # a cell rejected by any of them is not a candidate at all, regardless of
+    # how it scores elsewhere.
+    for key in ("terrain", habitat, *cfg.optional_layers):
         score = np.where(np.isfinite(components[key]), score, np.nan)
 
     excluded = _read(cfg, "land_excluded")
@@ -161,8 +167,8 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         "canopy_closure": _read(cfg, "canopy_closure"),
         "veg_class": _read(cfg, "veg_class"),
         "forest_class": _read(cfg, "forest_class"),
-        "riparian_class": _read(cfg, "riparian_class"),
-        "distance_to_water": _read(cfg, "distance_to_water"),
+        "water_distance": _read(cfg, "water_distance"),
+        "tpi": _read(cfg, "tpi"),
         "host_fraction": _read(cfg, "host_fraction"),
         "stand_age": _read(cfg, "stand_age"),
         "crown_closure_pct": _read(cfg, "crown_closure_pct"),
@@ -174,6 +180,7 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         "land_tenure": _read(cfg, "land_tenure"),
         "logging_age": _read(cfg, "logging_age"),
     }
+    forest_names = forest_class_names(cfg.species.get("forest"))
 
     idx = np.arange(1, n + 1)
     sizes = ndimage.sum_labels(np.ones_like(score, dtype="float32"), labels, idx)
@@ -190,6 +197,7 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
     mean_score = ndimage.mean(np.nan_to_num(score, nan=0.0), labels, keep)
     area_ha = sizes[keep - 1] * cell_ha
 
+    moisture = _read_component(cfg, "score_moisture")
     obs = _load_observations(cfg)
     obs_radius = float(cfg.species["observations"].get("boost_radius_m", 1200.0))
 
@@ -215,8 +223,11 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
         tenure_code = int(at("land_tenure", 0) or 0)
         tenure_key = CLASS_KEYS.get(tenure_code, "crown_land")
         aspect = at("aspect")
-        raster, names, fallback = HABITAT_CLASSES.get(habitat, HABITAT_CLASSES["vegetation"])
-        habitat_class = names.get(int(at(raster, 0) or 0), fallback)
+        if habitat == "forest":
+            habitat_class = forest_names.get(int(at("forest_class", 0) or 0), "no inventory")
+        else:
+            habitat_class = VEG_CLASS_NAMES.get(int(at("veg_class", 0) or 0), "unknown")
+
         lead = at("leading_species", 0)
 
         rows.append({
@@ -231,7 +242,8 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "ndvi": None if at("ndvi") is None else round(float(at("ndvi")), 3),
             "canopy_closure": None if at("canopy_closure") is None else round(float(at("canopy_closure")), 3),
             "veg_class": habitat_class,
-            "water_distance_m": None if at("distance_to_water") is None else round(float(at("distance_to_water"))),
+            "water_distance_m": None if at("water_distance") is None else round(float(at("water_distance"))),
+            "moisture_credit": _round_at(moisture, r, c) if moisture is not None else None,
             "host_fraction": None if at("host_fraction") is None else round(float(at("host_fraction")), 2),
             "leading_species": leading_label(int(lead) if lead is not None else None, at("leading_species_pct")),
             "stand_age_years": None if at("stand_age") is None else int(at("stand_age")),
@@ -248,6 +260,7 @@ def extract_sites(cfg, grid, score, components, log=print) -> gpd.GeoDataFrame:
             "score_habitat": _round_at(components[habitat], r, c),
             "score_access": _round_at(components["access"], r, c),
             "score_observations": _round_at(components["observations"], r, c),
+            "score_moisture": _round_at(components.get("moisture"), r, c),
             "_x": x,
             "_y": y,
         })
@@ -381,14 +394,13 @@ def _write_manifest(cfg, gdf, grid) -> None:
             "scientific_name": cfg.species.get("scientific_name"),
             "habitat_note": cfg.species.get("habitat_note"),
             "habitat_model": cfg.habitat_model,
-            # A profile may relabel the habitat layer and its detail rows: the
-            # forest model scores "host trees" for a mushroom, but for a tree
-            # target it scores the tree itself, and calling that "host share"
-            # in the popup would be wrong.
-            "habitat_label": cfg.species.get("habitat_label")
-                              or HABITAT_LABELS.get(cfg.habitat_layer, "Habitat"),
-            "forest_labels": cfg.species.get("forest_labels"),
+            "habitat_label": habitat_label_for(cfg),
             "season_months": cfg.species["observations"].get("months"),
+            "optional_layers": cfg.optional_layers,
+            # The popup words its cutblock note differently for species that
+            # are not penalised on logged ground (fireweed thrives there).
+            "logging_penalised": cfg.habitat_layer == "forest" or float(
+                cfg.species.get("vegetation", {}).get("logging", {}).get("penalty", 1.0)) < 1.0,
             # Documentary folklore, shown on the site popup. Species-level, so
             # it travels once in the manifest rather than on every site.
             "folk_magic": for_manifest(cfg.species),

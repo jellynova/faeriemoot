@@ -15,8 +15,15 @@ from rich.console import Console
 
 from .config import load_config
 from .stages import (
-    access, export, forest, landstatus, observations, riparian, scoring, terrain, vegetation,
-)
+    access,
+    export,
+    forest,
+    landstatus,
+    moisture,
+    observations,
+    scoring,
+    terrain,
+    vegetation,)
 
 app = typer.Typer(add_completion=False, help="Foraging suitability mapper.")
 console = Console()
@@ -25,19 +32,17 @@ STAGES = {
     "terrain": terrain.run,
     "vegetation": vegetation.run,
     "forest": forest.run,
-    "riparian": riparian.run,
-    "access": access.run,
+    "moisture": moisture.run,    "access": access.run,
     "observations": observations.run,
     "landstatus": landstatus.run,
     "scoring": scoring.run,
     "export": export.run,
 }
 
-# vegetation, forest and riparian are alternative habitat stages; each skips
-# itself unless the species profile's habitat_model selects it.
-ORDER = ["terrain", "vegetation", "forest", "riparian", "access", "observations",
-         "landstatus", "scoring", "export"]
-
+# vegetation and forest are alternative habitat stages; each skips itself unless
+# the species profile's habitat_model selects it. moisture is an optional extra
+# component that skips itself unless the profile has a moisture block.
+ORDER = ["terrain", "vegetation", "forest", "moisture", "access", "observations", "landstatus", "scoring", "export"]
 ConfigOpt = typer.Option("config/pipeline.json", "--config", "-c", help="Pipeline config file.")
 AoiOpt = typer.Option(None, "--aoi", help="AOI polygon, overriding the config. Re-targets the whole pipeline.")
 SpeciesOpt = typer.Option(None, "--species", help="Species profile, overriding the config.")
@@ -73,7 +78,7 @@ def run(
         False, "--reuse-imagery",
         help="Reuse cached Sentinel-2 index composites instead of re-downloading."),
 ):
-    """Run the full pipeline: terrain -> vegetation | forest | riparian -> access -> observations -> land status -> scoring -> export."""
+    """Run the full pipeline: terrain -> vegetation | forest -> [moisture] -> access -> observations -> land status -> scoring -> export."""
     cfg = load_config(config, aoi=aoi, species=species)
     _banner(cfg)
 

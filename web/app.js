@@ -165,10 +165,11 @@
     var origin = m.origin || {};
     var habitatSource = sp.habitat_model === "host_trees"
       ? "Host trees from the BC Vegetation Resources Inventory."
-      : sp.habitat_model === "riparian"
-        ? "Water proximity from BC's Freshwater Atlas (streams, lakes, wetlands)."
-        : "Imagery " + (w.window_start || "") + " to " + (w.window_end || "") +
-          " across " + ((w.years || []).join(", ")) + ".";
+      : "Imagery " + (w.window_start || "") + " to " + (w.window_end || "") +
+        " across " + ((w.years || []).join(", ")) + ".";
+    if ((sp.optional_layers || []).indexOf("moisture") >= 0) {
+      habitatSource += " Moisture from BC's Freshwater Atlas and terrain position.";
+    }
     $("provenance").textContent =
       "Drive times from " + (origin.name || "origin") + ". " + habitatSource;
 
@@ -444,29 +445,33 @@
     return habitatModel() === "host_trees";
   }
 
-  // Per-model detail rows. Each habitat model measures a different thing, so a
-  // riparian pin has no NDVI worth showing and a forest pin has no water
-  // distance; showing the other model's rows would be noise at best.
+  // Detail rows for the habitat model in use. A forest pin and a meadow pin
+  // measure different things, so showing both sets would be noise; the water
+  // row is the exception, because moisture is an optional extra component that
+  // composes with either model rather than replacing one.
   function habitatRows(p) {
     var model = habitatModel();
+    var rows = "";
     if (model === "host_trees") {
-      var fl = (current.manifest.species || {}).forest_labels || {};
-      return "<dt>Leading tree</dt><dd>" + (p.leading_species || "-") + "</dd>" +
-        "<dt>" + esc(fl.share || "Host share") + "</dt><dd>" +
+      var hostLabel = ((current.manifest.species || {}).forest || {}).host_label;
+      var shareLabel = hostLabel
+        ? hostLabel.charAt(0).toUpperCase() + hostLabel.slice(1) + " share"
+        : "Host share";
+      rows += "<dt>Leading tree</dt><dd>" + (p.leading_species || "-") + "</dd>" +
+        "<dt>" + esc(shareLabel) + "</dt><dd>" +
         fmt(p.host_fraction === null ? null : p.host_fraction * 100, 0, "%") + "</dd>" +
         "<dt>Stand age</dt><dd>" + fmt(p.stand_age_years, 0, " yr") + "</dd>";
+    } else {
+      rows += "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>";
     }
-    if (model === "riparian") {
-      return "<dt>Distance to water</dt><dd>" +
-        (p.water_distance_m === null || p.water_distance_m === undefined
-          ? "-" : p.water_distance_m + " m") + "</dd>";
+    if (p.water_distance_m !== undefined && p.water_distance_m !== null) {
+      rows += "<dt>Nearest water</dt><dd>" + fmt(p.water_distance_m, 0, " m") + "</dd>";
     }
-    return "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>";
+    return rows;
   }
 
   function habitatClassLabel() {
-    var model = habitatModel();
-    return model === "host_trees" ? "Forest" : model === "riparian" ? "Water" : "Vegetation";
+    return isHostModel() ? "Forest" : "Vegetation";
   }
 
   function popupHTML(p, coords) {
@@ -496,19 +501,22 @@
         bar(habitatLabel, habitatScore) +
         bar("Access", p.score_access) +
         bar("Observations", p.score_observations) +
+        (p.score_moisture !== undefined && p.score_moisture !== null
+          ? bar("Moisture", p.score_moisture) : "") +
       "</div>";
 
+    var penalised = (current.manifest.species || {}).logging_penalised !== false;
     if (p.on_cutblock && p.years_since_logging !== null && p.years_since_logging < 45) {
-      var why = hostModel
-        ? "Harvest removes the host trees; the stand-age credit already " +
-          "accounts for how long they take to come back."
-        : habitatModel() === "riparian"
-          ? "The riparian model scores water proximity and slope, so it does " +
-            "not penalise logging here - check the ground before trusting it."
-          : "Open ground here is harvest regrowth, not natural meadow - the " +
-            "score is already penalised for this.";
       html += '<div class="flagbox"><strong>Regenerating cutblock</strong><br>' +
-              "Logged " + p.years_since_logging + " years ago. " + why + "</div>";
+              "Logged " + p.years_since_logging + " years ago. " +
+              (!penalised
+                ? "This species colonises disturbed and logged ground, so the " +
+                  "score is not penalised for it."
+                : hostModel
+                ? "Harvest removes the host trees; the stand-age credit already " +
+                  "accounts for how long they take to come back."
+                : "Open ground here is harvest regrowth, not natural meadow - the " +
+                  "score is already penalised for this.") + "</div>";
     }
 
     if (p.land_flagged) {
@@ -653,6 +661,7 @@
         ? "linear-gradient(90deg,#440154,#3b528b,#21918c,#5ec962,#fde725)"
         : activeLegend === "slope" ? "linear-gradient(90deg,#ffffcc,#fdb04a,#e35a3c,#800026)"
         : activeLegend === "ndvi" ? "linear-gradient(90deg,#8c643c,#dcd28c,#5aaa46,#0a501e)"
+        : activeLegend === "moisture" ? "linear-gradient(90deg,#f5ebd2,#a0c8c8,#468cbe,#143c82)"
         : "linear-gradient(90deg,#3c6e46,#96af6e,#bea578,#a0826e,#fafafc)";
       html += '<div class="bar" style="background:' + grad + '"></div>' +
               '<div class="ends"><span>' + fmt(spec.min, 2) + "</span><span>" + fmt(spec.max, 2) + "</span></div>";

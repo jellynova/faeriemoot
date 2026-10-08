@@ -5,11 +5,6 @@
   "scientific_name": "Alectoria sarmentosa",
   "habitat_model": "host_trees",
   "habitat_note": "A hair lichen that drapes from the branches of conifers in humid, old, closed-canopy forest - the wetter interior cedar-hemlock and montane spruce-fir stands rather than the dry Douglas-fir slopes. Scored on conifer share of the stand times stand age times crown closure: the age and closure bands carry most of the signal, since the lichen needs decades to accumulate and cannot persist where the canopy is open and dry.",
-  "habitat_label": "Old-growth conifer canopy",
-  "forest_labels": {
-    "$comment": "'Conifer share' rather than 'host share': every conifer is a potential substrate, so the row is describing the stand, not a single host.",
-    "share": "Conifer share"
-  },
   "folk_magic": {
     "$comment": "An honest entry. Alectoria's own magical record is thin and partly name-derived, and the profile says so rather than borrowing another plant's charms; the medicinal use is real and documented, and the 'witch's hair' name is genuinely part of the folklore.",
     "folk_names": [
@@ -92,6 +87,8 @@
     }
   },
   "forest": {
+    "host_label": "conifer",
+    "host_label_plural": "conifers",
     "host_affinity": {
       "$comment": "Every conifer is a potential substrate, so the table spreads the credit across the conifers rather than picking one. Hemlock, cedar and the true firs score highest because the lichen's stronghold is the humid cedar-hemlock and montane fir forest; hardwoods are given a little credit because the lichen will hang in a mixed stand that has conifers in it, but a pure hardwood stand is not its habitat. Cedar and yew are included as substrates here, unlike in the chanterelle profile, where they were excluded for a biological reason that does not apply to a lichen: an epiphyte needs a branch, not a mycorrhizal root.",
       "HW": 0.9,

@@ -37,14 +37,19 @@ def load_json(path: Path) -> dict:
 # Each model answers "what actually limits this species?", which differs:
 # "spectral" reads the target's own signature off Sentinel-2 (right for a
 # meadow plant); "host_trees" scores tree composition from the forest inventory
-# (right for a mycorrhizal fungus, a target tree, or an epiphytic lichen);
-# "riparian" scores proximity to streams, lakes and wetlands (right for a
-# moisture-obligate plant, whose binding constraint is water, not greenness).
+# (right for a mycorrhizal fungus, a target tree, or an epiphytic lichen).
+# A moisture-obligate plant is neither of those, and is handled by the optional
+# "moisture" component below rather than by a third model, because water is a
+# constraint that composes with a spectral or host-tree signal instead of
+# replacing it.
 HABITAT_LAYERS = {
     "spectral": "vegetation",     # the target's own reflectance (Sentinel-2)
     "host_trees": "forest",       # tree composition from the forest inventory (VRI)
-    "riparian": "riparian",       # proximity to water (BC Freshwater Atlas)
 }
+
+# Optional score components a profile switches on by carrying the named block.
+# Each has its own stage, which skips itself for profiles without the block.
+OPTIONAL_LAYERS = ("moisture",)
 
 # Only these weights sections may be overridden per species. Access and land
 # status are computed once per AOI and shared between species, so letting a
@@ -112,6 +117,11 @@ class Config:
     def habitat_layer(self) -> str:
         """Score component that carries the habitat signal: 'vegetation' or 'forest'."""
         return HABITAT_LAYERS[self.habitat_model]
+
+    @property
+    def optional_layers(self) -> list[str]:
+        """Optional score components this profile carries, e.g. ``["moisture"]``."""
+        return [k for k in OPTIONAL_LAYERS if self.species.get(k)]
 
     @property
     def run_id(self) -> str:
@@ -202,6 +212,7 @@ def load_config(
     validate_folk_magic(species)
     weights = load_json(root / pipeline["weights"])
     weights = _apply_weights_override(weights, species.get("weights_override"), species["id"])
+    _check_optional_weights(species, weights)
     aoi_path = root / pipeline["aoi"]
     aoi = gpd.read_file(aoi_path)
     if aoi.crs is None:
@@ -209,6 +220,23 @@ def load_config(
     aoi = aoi.to_crs("EPSG:4326")
 
     return Config(root=root, pipeline=pipeline, species=species, weights=weights, aoi=aoi, aoi_path=aoi_path)
+
+
+def _check_optional_weights(species: dict, weights: dict) -> None:
+    """An optional block and its weight must come together.
+
+    A ``moisture`` block with no ``moisture`` weight would be computed and then
+    silently ignored by the weighted mean; a weight with no block would be
+    renormalised away. Both are configuration mistakes worth failing on.
+    """
+    w = weights.get("weights", {})
+    for key in OPTIONAL_LAYERS:
+        has_block, has_weight = bool(species.get(key)), float(w.get(key, 0.0)) > 0
+        if has_block and not has_weight:
+            raise ValueError(f"species {species['id']}: has a '{key}' block but "
+                             f"weights_override.weights gives '{key}' no weight")
+        if has_weight and not has_block:
+            raise ValueError(f"species {species['id']}: weights '{key}' but has no '{key}' block")
 
 
 def _find_root(pipeline_path: Path) -> Path:

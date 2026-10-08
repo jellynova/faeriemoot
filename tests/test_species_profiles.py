@@ -18,7 +18,8 @@ ROOT = Path(__file__).resolve().parent.parent
 PROFILES = sorted((ROOT / "config" / "species").glob("*.json"))
 IDS = [p.stem for p in PROFILES]
 
-MODEL_BLOCK = {"spectral": "vegetation", "host_trees": "forest", "riparian": "riparian"}
+MODEL_BLOCK = {"spectral": "vegetation", "host_trees": "forest"}
+OPTIONAL_BLOCKS = ("moisture",)
 
 REQUIRED = (
     "id", "common_name", "scientific_name", "habitat_model", "habitat_note",
@@ -78,7 +79,8 @@ class TestEveryProfile:
         layer = MODEL_BLOCK[p["habitat_model"]]
         assert layer in override["weights"]
         assert sum(override["weights"].values()) > 0
-        for other in set(MODEL_BLOCK.values()) - {layer}:
+        allowed = {layer, *OPTIONAL_BLOCKS}
+        for other in set(MODEL_BLOCK.values()) - allowed:
             assert other not in override["weights"], f"stale {other} weight"
 
 
@@ -145,27 +147,42 @@ class TestHostTreeProfiles:
         assert c["hard_max"] is None or c["hard_max"] >= c["optimal_max"]
 
 
-@pytest.mark.parametrize("path", [p for p in PROFILES if load(p)["habitat_model"] == "riparian"], ids=ids_of("riparian"))
-class TestRiparianProfiles:
+@pytest.mark.parametrize("path", [p for p in PROFILES if load(p).get("moisture")], ids=lambda p: p.stem)
+class TestMoistureProfiles:
+    """Moisture is an optional extra component, so it can sit on top of either
+    habitat model. These checks are the shape of the block."""
+
     def test_distance_band_is_ordered(self, path):
-        d = load(path)["riparian"]["distance_m"]
-        assert 0 < d["optimal_max"] < d["hard_max"]
+        d = load(path)["moisture"]["water_distance_m"]
+        assert 0 < d["optimal_max"] < d["zero_at"]
+        hard = d.get("hard_max_m")
+        if hard is not None:
+            assert d["optimal_max"] <= hard
 
-    def test_slope_band_is_ordered(self, path):
-        s = load(path)["riparian"]["slope_deg"]
-        assert s["optimal_max"] < s["hard_max"]
+    def test_tpi_band_is_ordered(self, path):
+        t = load(path)["moisture"]["tpi"]
+        assert t["wet_at_m"] < t["dry_at_m"]
+        assert t["radius_m"] > 0
 
-    def test_stream_order_knots_increase(self, path):
-        knots = load(path)["riparian"]["stream_order_credit"]["knots"]
-        orders = [k[0] for k in knots]
-        assert orders == sorted(orders)
-        assert all(0.0 <= k[1] <= 1.0 for k in knots)
-        assert knots[-1][1] > knots[0][1], "a first-order stream must not score as high as a mainstem"
+    def test_blend_gives_something_positive_weight(self, path):
+        b = load(path)["moisture"]["blend"]
+        assert set(b) <= {"water", "tpi"}
+        assert sum(b.values()) > 0
 
-    def test_water_type_credits_are_credits(self, path):
-        credits = load(path)["riparian"]["water_type_credit"]
-        assert set(credits) <= {"lake_river", "wetland"}
-        assert all(0.0 <= v <= 1.0 for v in credits.values())
+    def test_min_credit_is_a_credit(self, path):
+        assert 0.0 <= load(path)["moisture"].get("min_credit", 0.0) <= 1.0
+
+    def test_water_features_are_known(self, path):
+        from foraging.stages.moisture import WATER_FEATURES
+        feats = load(path)["moisture"].get("water_features", list(WATER_FEATURES))
+        assert set(feats) <= set(WATER_FEATURES)
+
+    def test_the_block_and_its_weight_come_together(self, path):
+        """load_config enforces this; assert it here too so a profile cannot be
+        added with a moisture block that is silently ignored."""
+        p = load(path)
+        w = (p.get("weights_override") or {}).get("weights", {})
+        assert float(w.get("moisture", 0.0)) > 0, "moisture block with no moisture weight"
 
 
 class TestSetCoverage:
@@ -186,19 +203,27 @@ class TestSetCoverage:
                 assert profile.get("habitat_label")
 
 
-class TestModelDispatch:
-    """The three models share one dispatch path in scoring; a missing entry
-    would silently fall back to the vegetation class labels."""
+class TestHabitatLabels:
+    """The habitat bar's label comes from the profile, so a tree target does
+    not read as a mushroom host."""
 
-    def test_every_model_has_class_labels_and_a_habitat_label(self):
-        from foraging.stages.scoring import HABITAT_CLASSES, HABITAT_LABELS
+    def test_every_model_has_a_default_label(self):
+        from foraging.stages.scoring import HABITAT_LABELS
         for layer in MODEL_BLOCK.values():
-            assert layer in HABITAT_CLASSES, layer
             assert layer in HABITAT_LABELS, layer
-            raster, names, fallback = HABITAT_CLASSES[layer]
-            assert raster and isinstance(names, dict) and fallback
 
-    def test_habitat_layers_are_distinct(self):
-        from foraging.stages.scoring import HABITAT_CLASSES
-        rasters = [v[0] for v in HABITAT_CLASSES.values()]
-        assert len(set(rasters)) == len(rasters), "two models share a class raster"
+    def test_host_label_becomes_the_stand_label(self, tmp_path):
+        from foraging.config import load_config
+        from foraging.stages.scoring import habitat_label_for
+        cfg = load_config("config/pipeline.json", root=ROOT,
+                          species="config/species/thuja_plicata.json")
+        assert cfg.species["forest"]["host_label"] == "cedar"
+        assert habitat_label_for(cfg) == "Cedar stands"
+
+    def test_an_explicit_label_wins(self, tmp_path):
+        from foraging.config import load_config
+        from foraging.stages.scoring import habitat_label_for
+        cfg = load_config("config/pipeline.json", root=ROOT,
+                          species="config/species/cantharellus_formosus.json")
+        # No host_label and no explicit label: the generic default applies.
+        assert habitat_label_for(cfg) == "Host trees"

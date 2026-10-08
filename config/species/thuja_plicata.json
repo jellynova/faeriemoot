@@ -5,11 +5,6 @@
   "scientific_name": "Thuja plicata",
   "habitat_model": "host_trees",
   "habitat_note": "Western redcedar is a tree of moist, mild, low-elevation sites - valley bottoms, stream terraces, seepage slopes and the wetter lower slopes - where it often leads mixed stands. Scored on the cedar share of the stand from the BC forest inventory, times stand age and crown closure, since a cedar plantation and an old cedar grove are not the same thing.",
-  "habitat_label": "Cedar stands",
-  "forest_labels": {
-    "$comment": "The popup's detail row, relabelled because 'host share' would be wrong for a tree target.",
-    "share": "Cedar share"
-  },
   "folk_magic": {
     "$comment": "The tree of life of the Northwest Coast. The associations are Indigenous and are labelled as such; there is no meaningful European record for this species.",
     "folk_names": [
@@ -100,6 +95,8 @@
     }
   },
   "forest": {
+    "host_label": "cedar",
+    "host_label_plural": "cedars",
     "host_affinity": {
       "$comment": "Cedar is the target, so it is the only species that counts. Every other code is left out and falls to default_affinity 0.0: a stand with no cedar in it is not cedar habitat, however good the rest of the forest is. Yellow-cedar (YC) is a coastal species that does not occur here, so it is not listed.",
       "CW": 1.0

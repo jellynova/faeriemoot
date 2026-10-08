@@ -3,8 +3,23 @@
   "id": "urtica_dioica",
   "common_name": "Stinging nettle",
   "scientific_name": "Urtica dioica",
-  "habitat_model": "riparian",
-  "habitat_note": "Stream banks, seepage lines, avalanche runouts, damp thickets and enriched disturbed ground, from valley bottom to lower subalpine. Wants moisture and nitrogen, and follows people: many of the best patches in this region are old homesteads and road edges. Scored on distance to water times flat ground, with a wider tolerance than devil's club because it will take a drier site if the soil is rich.",
+  "habitat_model": "spectral",
+  "habitat_note": "Stream banks, seepage lines, avalanche runouts, damp thickets and enriched disturbed ground, from valley bottom to lower subalpine. Wants moisture and nitrogen, and follows people: many of the best patches in this region are old homesteads and road edges. Scored on two signals - the vegetation layer for the open, lush, disturbed ground it occupies, and the moisture component for the damp part of it - with a wide moisture band because nettle will take a drier site if the soil is rich.",
+  "weights_override": {
+    "$comment": "A two-signal species: the vegetation layer finds the open, green, disturbed ground it wants and the moisture component finds the damp part of it. Aspect is zero-weighted - for a plant following water and disturbance, which way the ground faces is not the binding variable.",
+    "weights": {
+      "terrain": 0.25,
+      "vegetation": 0.30,
+      "moisture": 0.25,
+      "access": 0.10,
+      "observations": 0.10
+    },
+    "terrain_subweights": {
+      "elevation": 0.75,
+      "slope": 0.25,
+      "aspect": 0.0
+    }
+  },
   "folk_magic": {
     "$comment": "European magical use is unusually strong for a plant this common, and it is worth separating from the Indigenous food-and-fibre use, which is a different kind of record.",
     "folk_names": [
@@ -49,20 +64,6 @@
       "Turner, N. J., and Moerman, D. - Indigenous North American food, fibre and medicinal use."
     ]
   },
-  "weights_override": {
-    "$comment": "Same shape as the other riparian profiles: water proximity carries the habitat signal, terrain supports it, aspect is zero-weighted because it is not the binding variable for this species.",
-    "weights": {
-      "terrain": 0.25,
-      "riparian": 0.45,
-      "access": 0.15,
-      "observations": 0.15
-    },
-    "terrain_subweights": {
-      "elevation": 0.75,
-      "slope": 0.25,
-      "aspect": 0.0
-    }
-  },
   "observations": {
     "taxon_name": "Urtica dioica",
     "genus_fallback": "Urtica",
@@ -99,31 +100,58 @@
       "flat_slope_deg": 3.0
     }
   },
-  "riparian": {
-    "distance_m": {
-      "$comment": "Wider than devil's club: nettle is a stream-bank plant but will follow a ditch, a seep or an enriched clearing well away from a mapped watercourse, so the band runs out further before the cell is rejected.",
-      "optimal_max": 120,
-      "hard_max": 450
+  "vegetation": {
+    "$comment": "Scored as open, lush, disturbed ground. Nettle is a nitrophile: it wants full light and enriched soil, which in this landscape means the greenest, most productive ground rather than the thin sward the dry-site species occupy.",
+    "ndvi": {
+      "hard_min": 0.3,
+      "optimal_min": 0.5,
+      "optimal_max": 0.92
     },
-    "slope_deg": {
-      "optimal_max": 12,
-      "hard_max": 30
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
     },
-    "stream_order_credit": {
-      "$comment": "Less fussy about reliable water than devil's club - a damp headwater gully will do - so the first-order credit is lower and the curve flatter.",
-      "knots": [
-        [1, 0.25],
-        [3, 0.7],
-        [5, 1.0]
-      ]
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
     },
-    "water_type_credit": {
-      "lake_river": 1.0,
-      "wetland": 0.9
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "meadow": 1.0,
+      "open_forest": 0.7,
+      "closed_forest": 0.2,
+      "bare": 0.1
     },
-    "hard_filters": {
-      "enforce_water_max": true
+    "logging": {
+      "$comment": "Nettle follows disturbance, so the penalty is light and fades quickly - a fresh landing or a new road edge is genuine nettle ground.",
+      "penalty": 0.7,
+      "recovery_years": 20
     }
+  },
+  "moisture": {
+    "$comment": "The damp half of the plant's requirement, and a preference rather than a hard requirement - nettle will take a dry site if the soil is enriched, which is what the min_credit floor says. The topographic-position term matters as much as the water distance here: nettle follows ditches, old farmyards and seepage lines that are often unmapped.",
+    "water_distance_m": {
+      "optimal_max": 120,
+      "zero_at": 500,
+      "hard_max_m": 450
+    },
+    "tpi": {
+      "radius_m": 120,
+      "wet_at_m": -4.0,
+      "dry_at_m": 6.0
+    },
+    "blend": {
+      "water": 0.6,
+      "tpi": 0.4
+    },
+    "min_credit": 0.15,
+    "min_stream_order": 1,
+    "water_features": [
+      "streams",
+      "lakes",
+      "rivers",
+      "wetlands"
+    ]
   },
   "imagery_window_override": null
 }

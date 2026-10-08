@@ -53,13 +53,28 @@ VRI_FIELDS = (
 # Categorical output for the UI's forest layer.
 CLASS_NODATA, CLASS_NON_FOREST, CLASS_NON_HOST, CLASS_LOW_HOST, CLASS_HOST_RICH = 0, 1, 2, 3, 4
 CLASS_YOUNG = 5
-CLASS_NAMES = {
-    CLASS_NON_FOREST: "non-forest",
-    CLASS_NON_HOST: "forest, no hosts",
-    CLASS_LOW_HOST: "forest, some hosts",
-    CLASS_HOST_RICH: "host-rich forest",
-    CLASS_YOUNG: "young / recently harvested",
-}
+
+
+def class_names(fcfg: dict | None = None) -> dict[int, str]:
+    """Forest class labels, worded with the profile's ``host_label``.
+
+    "Host" is the right word for a mycorrhizal fungus. For a profile that uses
+    stand composition as an *indicator* - cedar for devil's club, or the target
+    tree itself - the profile names what it is scoring instead, e.g.
+    ``"host_label": "cedar"`` gives "cedar-rich forest".
+    """
+    term = (fcfg or {}).get("host_label") or "host"
+    plural = (fcfg or {}).get("host_label_plural") or ("hosts" if term == "host" else term)
+    return {
+        CLASS_NON_FOREST: "non-forest",
+        CLASS_NON_HOST: f"forest, no {plural}",
+        CLASS_LOW_HOST: f"forest, some {plural}",
+        CLASS_HOST_RICH: f"{term}-rich forest",
+        CLASS_YOUNG: "young / recently harvested",
+    }
+
+
+CLASS_NAMES = class_names()
 
 # VRI species codes -> common names, for the leading-species attribute. Matched
 # by longest prefix like the affinity table, so variety codes (FDI, PLI) fold
@@ -259,7 +274,8 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     grid.write(cfg.species_interim("score_forest.tif"), score)
     grid.write(cfg.species_interim("forest_class.tif"), fclass, dtype="uint8")
 
-    counts = {CLASS_NAMES[k]: int((fclass == k).sum()) for k in CLASS_NAMES}
+    names = class_names(fcfg)
+    counts = {names[k]: int((fclass == k).sum()) for k in names}
     total = max(sum(counts.values()), 1)
     log("[forest] class mix: " + ", ".join(f"{k} {v / total:.1%}" for k, v in counts.items()))
     ok = np.isfinite(score)

@@ -5,10 +5,6 @@
   "scientific_name": "Pseudotsuga menziesii",
   "habitat_model": "host_trees",
   "habitat_note": "Douglas-fir leads the dry, warm, low- to mid-elevation forests of the interior - the valley slopes and benches above the towns - and it is the most abundant tree in this AOI's inventory. Scored on its share of the stand from the BC forest inventory, times stand age and crown closure.",
-  "habitat_label": "Douglas-fir stands",
-  "forest_labels": {
-    "share": "Douglas-fir share"
-  },
   "folk_magic": {
     "$comment": "Labelled Indigenous where the record is Indigenous; the European settler use of the tree is mostly timber and pitch rather than magic.",
     "folk_names": [
@@ -99,6 +95,8 @@
     }
   },
   "forest": {
+    "host_label": "Douglas-fir",
+    "host_label_plural": "Douglas-firs",
     "host_affinity": {
       "$comment": "Douglas-fir is the target, so it is the only species that counts; every other code falls to default_affinity 0.0. The chanterelle profile's table weights several species because a fungus can use several hosts - a tree profile cannot.",
       "FD": 1.0
