@@ -1,0 +1,90 @@
+{
+  "$comment": "Target profile for common St John's wort, an introduced Eurasian perennial and a provincially regulated noxious weed in BC. Same dry, disturbed, low-elevation niche as mullein, but on somewhat less sparse ground: it forms patches in dry grassland and open forest rather than needing bare soil.",
+  "id": "hypericum_perforatum",
+  "common_name": "St John's wort",
+  "scientific_name": "Hypericum perforatum",
+  "habitat_model": "spectral",
+  "habitat_note": "Introduced; a regulated noxious weed in BC (also called Klamath weed). Dry, sunny, disturbed ground in the low valleys: roadsides, rangeland, dry grassy openings and open pine / Douglas-fir forest. Flowers around midsummer (late June to August). The native western St John's wort (H. scouleri) is a different plant of moist montane meadows.",
+  "weights_override": {
+    "weights": {
+      "terrain": 0.30,
+      "vegetation": 0.30,
+      "access": 0.20,
+      "observations": 0.20
+    },
+    "terrain_subweights": {
+      "elevation": 0.5,
+      "slope": 0.2,
+      "aspect": 0.3
+    }
+  },
+  "observations": {
+    "taxon_name": "Hypericum perforatum",
+    "genus_fallback": "Hypericum",
+    "$comment": "43 AOI records. H. scouleri (and the small H. anagalloides) grow in wet meadows and seeps, the opposite of the target's habitat, so their records are down-weighted.",
+    "congeners_downweight": [
+      "Hypericum scouleri",
+      "Hypericum anagalloides"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 800,
+    "months": [6, 7, 8, 9],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Records: p05 436 m, median 560 m, p95 1080 m.",
+      "hard_min": 300,
+      "optimal_min": 400,
+      "optimal_max": 900,
+      "hard_max": 1400
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 28,
+      "hard_max": 40
+    },
+    "aspect": {
+      "optimal_bearing_deg": 202.5,
+      "tolerance_deg": 75.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "$comment": "Dry grassy ground: higher floor and ceiling than mullein, since it grows in turf rather than on bare gravel.",
+      "hard_min": 0.15,
+      "optimal_min": 0.3,
+      "optimal_max": 0.7,
+      "hard_max": 0.9
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "meadow": 1.0,
+      "open_forest": 0.45,
+      "closed_forest": 0.0,
+      "bare": 0.2
+    },
+    "logging": {
+      "$comment": "Neutral: a disturbance follower that spreads along skid roads and into cut-over dry forest.",
+      "penalty": 1.0,
+      "recovery_years": 45
+    }
+  },
+  "validation": {
+    "target": "Hypericum perforatum",
+    "contrast": "Achillea millefolium",
+    "contrast_label": "roadside generalist",
+    "query_taxa": ["Hypericum perforatum", "Achillea millefolium"],
+    "config": "config/pipeline.validation.json"
+  },
+  "imagery_window_override": null
+}
