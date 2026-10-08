@@ -1,0 +1,93 @@
+{
+  "$comment": "Target profile for western mugwort / prairie sage. Chosen as the region's mugwort because common mugwort (A. vulgaris) has no records in the AOI. The narrowest niche in the set: dry, sandy or gravelly flats on the low Columbia and Kootenay river terraces. Its records barely leave the valley floor (p95 561 m), so elevation does most of the work.",
+  "id": "artemisia_ludoviciana",
+  "common_name": "Western mugwort",
+  "scientific_name": "Artemisia ludoviciana",
+  "habitat_model": "spectral",
+  "habitat_note": "Native perennial of dry grassland, sandy river terraces, gravel bars and dry open ponderosa pine / Douglas-fir ground in the warmest, lowest valleys. Silvery-grey, aromatic, spreads by rhizomes into patches. Also called prairie sage or white sage (not to be confused with Salvia apiana, the Californian white sage). Not common mugwort, A. vulgaris, which is absent from this AOI.",
+  "weights_override": {
+    "weights": {
+      "terrain": 0.35,
+      "vegetation": 0.30,
+      "access": 0.15,
+      "observations": 0.20
+    },
+    "terrain_subweights": {
+      "$comment": "Elevation is nearly the whole story for a plant confined to the valley floor; the flats it likes have no meaningful aspect.",
+      "elevation": 0.65,
+      "slope": 0.25,
+      "aspect": 0.10
+    }
+  },
+  "observations": {
+    "taxon_name": "Artemisia ludoviciana",
+    "genus_fallback": "Artemisia",
+    "$comment": "15 AOI records. The genus query also returns the alpine sageworts (A. norvegica, A. michauxiana) and introduced wormwood; the alpine ones are down-weighted so their records cannot drag the boost uphill.",
+    "congeners_downweight": [
+      "Artemisia norvegica",
+      "Artemisia michauxiana",
+      "Artemisia arctica"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 800,
+    "months": [5, 6, 7, 8, 9, 10],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Records: p05 403 m, median 450 m, p95 561 m. The Columbia at Trail sits at ~420 m.",
+      "hard_min": 300,
+      "optimal_min": 400,
+      "optimal_max": 650,
+      "hard_max": 1000
+    },
+    "slope_deg": {
+      "$comment": "Median record slope is 2.7 deg: terraces and flats.",
+      "optimal_min": 0,
+      "optimal_max": 15,
+      "hard_max": 35
+    },
+    "aspect": {
+      "optimal_bearing_deg": 202.5,
+      "tolerance_deg": 90.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "$comment": "Sparse, silvery, drought-adapted cover. Irrigated lawns and lush riparian sward are wrong for it.",
+      "hard_min": 0.12,
+      "optimal_min": 0.2,
+      "optimal_max": 0.55,
+      "hard_max": 0.8
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "meadow": 1.0,
+      "open_forest": 0.3,
+      "closed_forest": 0.0,
+      "bare": 0.3
+    },
+    "logging": {
+      "$comment": "Mild penalty: its dry valley grassland is not cutblock habitat, and an open young block at this elevation is more likely fireweed and knapweed.",
+      "penalty": 0.6,
+      "recovery_years": 30
+    }
+  },
+  "validation": {
+    "target": "Artemisia ludoviciana",
+    "contrast": "Achillea millefolium",
+    "contrast_label": "roadside generalist",
+    "query_taxa": ["Artemisia ludoviciana", "Achillea millefolium"],
+    "config": "config/pipeline.validation.json"
+  },
+  "imagery_window_override": null
+}
