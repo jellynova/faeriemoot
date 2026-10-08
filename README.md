@@ -503,8 +503,9 @@ Drive times against known road distances from Rossland:
 Slope and aspect are pinned by unit tests against synthetic planes on nine
 bearings. `pytest` covers the membership curves, the terrain math, the
 least-cost path attribution, host-tree scoring from VRI attributes, the
-validation statistics, per-species config and paths, and occurrence-record
-filtering (82 tests).
+validation statistics, per-species config and paths, occurrence-record
+filtering, the folk-magic schema, the moisture component, and a structural
+check of every shipped species profile (393 tests).
 
 ```bash
 pytest

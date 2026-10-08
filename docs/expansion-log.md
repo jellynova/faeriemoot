@@ -356,6 +356,12 @@ Verified beyond the suite:
   record under the most specific name it was identified to, so five of the
   AOI's 43 fly agaric records arrive as *Amanita muscaria flavivolvata* and were
   weighted as "other" rather than as the target. Both are fixed, with tests.
+* **The merge left two `"water"` ramps in the same dict literal**, so Python kept
+  the last and the moisture overlay rendered inverted - wettest ground pale,
+  driest blue - while the legend in `web/app.js` showed wettest as blue. The
+  survivor was the distance-oriented ramp from the removed `riparian` model; the
+  credit-oriented one is kept, and the regenerated overlay is now blue for wet
+  ground as the legend says.
 * **Every elevation band was checked against the DEM at the species' own
   records** (see the elevation-evidence section). Two were genuinely mistuned
   for this AOI and three were widened; the rest were confirmed as they stood.

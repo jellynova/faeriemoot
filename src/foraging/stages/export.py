@@ -37,10 +37,12 @@ RAMPS = {
                   (0.8, 160, 130, 110), (1.0, 250, 250, 252)],
     "slope": [(0.0, 255, 255, 204), (0.4, 253, 176, 74), (0.7, 227, 90, 60), (1.0, 128, 0, 38)],
     "ndvi": [(0.0, 140, 100, 60), (0.4, 220, 210, 140), (0.7, 90, 170, 70), (1.0, 10, 80, 30)],
+    # The moisture layer is exported as a *credit* (score_moisture: 1 = wettest),
+    # so the ramp runs pale -> deep blue and matches the legend gradient in
+    # web/app.js. The riparian model this replaced drew distance instead, where
+    # the direction is reversed; that ramp is not used here.
     "water": [(0.0, 245, 235, 210), (0.4, 160, 200, 200), (0.7, 70, 140, 190), (1.0, 20, 60, 130)],
     "host": [(0.0, 245, 240, 225), (0.3, 200, 190, 110), (0.6, 120, 150, 60), (1.0, 30, 80, 40)],
-    # Water distance is inverted on the way in, so the ramp reads "near" -> "far".
-    "water": [(0.0, 30, 90, 160), (0.4, 70, 150, 180), (1.0, 225, 235, 220)],
 }
 
 # Cyclic ramp so north wraps cleanly; used for aspect.

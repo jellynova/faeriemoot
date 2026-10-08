@@ -6,7 +6,7 @@ of the review: they do not judge whether a band is *right*, only that it is
 well-formed and internally consistent.
 """
 
-import json
+
 from pathlib import Path
 
 import pytest
