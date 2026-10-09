@@ -51,6 +51,7 @@ Counts (research grade, 2026-10):
 | *Betula papyrifera* | 49883 | 47 | 122 | add |
 | *Alectoria sarmentosa* | 126626 | 12 | 63 | add |
 | *Amanita muscaria* | 48715 | 43 | 93 | add |
+| *Sorbus* (genus; *S. scopulina* 8, *S. aucuparia* escape 5) | 48582 | 16 | 73 | add (post-expansion) |
 | *Arnica latifolia* (existing) | 75573 | 6 | 53 | already shipped |
 
 Two caveats, both stated because they bound what the numbers mean:
@@ -103,6 +104,7 @@ and the 30 m AOI grid for the local picture.
 | *Betula papyrifera* | 110 | 438 | 513 | 587 | 728 | 1010 |
 | *Alectoria sarmentosa* | 50 | 526 | 596 | 838 | 1064 | 1666 |
 | *Amanita muscaria* | 63 | 434 | 483 | 615 | 1545 | 1761 |
+| *Sorbus* (genus) | 62 | 460 | 541 | 652 | 1569 | 1922 |
 | *Arnica latifolia* (existing) | 42 | 637 | 1623 | 1786 | 1940 | 2201 |
 
 *Cantharellus formosus* has no row: every golden-chanterelle record in the
@@ -278,6 +280,7 @@ listed so the set's coverage is visible at a glance.
 | *Betula papyrifera* | paper birch | host_trees | protection, purification, spirit-work | added |
 | *Alectoria sarmentosa* | old man's beard | host_trees | protection, healing | added |
 | *Amanita muscaria* | fly agaric | host_trees | spirit-work, divination, luck | added |
+| *Sorbus scopulina* / *S. sitchensis* | mountain-ash (rowan) | spectral | protection, warding | added after the 15 |
 
 ## The folk-magic block (Part 2)
 
@@ -401,3 +404,31 @@ Verified beyond the suite:
 * **Nothing here is a field guide.** The safety notes are hazard summaries for
   someone reading the folklore, not identification or dosage, and several of
   these plants are genuinely dangerous to confuse with something else.
+
+## Addendum: mountain-ash (rowan)
+
+Added after the fifteen above. It was missing from both the added and the
+not-added lists, which made it an omission rather than a decision, and it is
+the best-attested protective tree in British, Irish and Scandinavian folk
+magic.
+
+* **Presence.** 16 *Sorbus* records in the AOI and 73 across the Kootenays. Of
+  the AOI's identified ones, 8 are native Greene's mountain-ash (*S. scopulina*)
+  and 5 are the European rowan (*S. aucuparia*), planted and escaped in
+  Rossland, Trail and Castlegar. The profile targets the genus and down-weights
+  *S. aucuparia*, because its town records would otherwise turn the map into a
+  map of gardens.
+* **Elevation.** The genus records' lower quartile (541 m) is mostly town
+  rowan; the native plants sit around 1,500-1,900 m (p75 1,569, p95 1,922). The
+  band follows the native plants: optimal 800-1,950 m.
+* **Folklore and origin.** The rowan tradition belongs to *S. aucuparia*. The
+  block says so, and attaches it to the native mountain-ashes by genus only; no
+  local or Indigenous practice is claimed for them. Two claims were checked
+  against sources before use: the charm "Rowan-tree and red thread / Put the
+  witches to their speed" is in Chambers, *Popular Rhymes of Scotland* (1826,
+  p. 277, per the Dictionary of the Scots Language), and Thor's rescue by a
+  rowan at the river Vimur is in Snorri's *Skáldskaparmál*. A commonly repeated
+  "the rowan is Thor's salvation" quotation could not be confirmed, so it is
+  not used.
+* **Live run.** 400 sites, p10-p90 958-1,618 m, almost all open forest; the
+  manifest carries the block and the popup renders it with no console errors.

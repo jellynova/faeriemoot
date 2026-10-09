@@ -17,7 +17,8 @@ herbalism or folklore. Each is scored on whatever actually limits it:
   scored on **distance to water** from BC's Freshwater Atlas.
 * **Fireweed, yarrow, mullein, Rocky Mountain juniper, western mugwort, St
   John's wort, prickly rose** — open-ground plants, scored on the canopy
-  continuum.
+  continuum; **mountain-ash (rowan)** the same way, preferring open montane
+  forest.
 * **Western redcedar, Douglas-fir, paper birch**, the epiphytic **old man's
   beard** lichen, and the **fly agaric** — scored on stand composition, age and
   canopy closure.

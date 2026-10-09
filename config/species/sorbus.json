@@ -1,0 +1,128 @@
+{
+  "$comment": "Target profile for the native mountain-ashes - Greene's (S. scopulina) and Sitka (S. sitchensis) - modelled at genus level since both share the montane-to-subalpine niche and are often recorded only as Sorbus. The European rowan (S. aucuparia) of the folklore is planted and escaped in the towns here; it is down-weighted, because its records cluster in Rossland, Trail and Castlegar and would otherwise turn this into a map of gardens. Added on top of the 15-species expansion: present (16 Sorbus AOI records, 8 S. scopulina) and the strongest protective-tree tradition not otherwise in the set.",
+  "id": "sorbus",
+  "common_name": "Mountain-ash (rowan)",
+  "scientific_name": "Sorbus scopulina / S. sitchensis",
+  "habitat_model": "spectral",
+  "habitat_note": "Native mountain-ashes: shrubs of open montane and subalpine forest, forest edges, avalanche tracks, rocky openings and older clearings, roughly 800-2,000 m here. Scarlet-orange berry clusters ripen August-September. Not true ashes (Fraxinus); close relatives of the European rowan, S. aucuparia, which grows in town and is the tree of British and Scandinavian rowan lore.",
+  "folk_magic": {
+    "$comment": "Rowan carries one of the best-attested protective traditions in British, Irish and Scandinavian folklore - but that tradition belongs to the European rowan, S. aucuparia, which grows here only as a town escape. It is attached to the native mountain-ashes by genus, not by any recorded local practice, and the block says so rather than implying a tradition for the native plants.",
+    "folk_names": [
+      "rowan",
+      "mountain-ash",
+      "quicken tree",
+      "witchen"
+    ],
+    "traditions": [
+      "Scottish, Irish and northern English folk magic",
+      "Old Norse mythology"
+    ],
+    "associations": [
+      {
+        "theme": "protection",
+        "note": "The pre-eminent tree against witchcraft in the British and Irish record. Sprigs were fixed over house and byre doors, especially on May Eve and the other quarter days; small crosses of rowan twigs were bound with red thread and carried or sewn into clothing; and rowan wood was used for churn staffs, pegs and whip handles so that butter and cattle could not be bewitched. A Scots charm printed in 1826 runs 'Rowan-tree and red thread / Put the witches to their speed'. The red berries were taken to reinforce the colour red's own protective reputation.",
+        "origin": "Scottish, Irish and northern English folk practice, recorded from the 18th and 19th centuries; the charm is in Robert Chambers, Popular Rhymes of Scotland (1826). Attaches to the European rowan, S. aucuparia."
+      },
+      {
+        "theme": "warding",
+        "note": "Rowan was planted beside houses and left standing where it grew, and cutting one was widely held to be unlucky. The guarding role was the tree's presence at the threshold as much as any charm made from it.",
+        "origin": "British and Irish folk custom; recorded across the regional folklore collections summarised by Grigson and Vickery."
+      },
+      {
+        "theme": "protection",
+        "note": "In Snorri Sturluson's account of Thor's journey to the giant Geirrod, Thor is nearly swept away crossing the flooded river Vimur and saves himself by grasping a rowan on the bank. The episode is the oldest written link between the rowan and rescue from harm.",
+        "origin": "Old Norse mythology: Snorri Sturluson, Prose Edda, Skaldskaparmal (13th century)."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "Raw berries contain parasorbic acid and can cause stomach upset; traditional preparations cook them (jelly, wine), which converts it to harmless sorbic acid. Like other members of the rose family the seeds contain cyanogenic glycosides, which matter only in quantity. Not a true ash (Fraxinus). This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Chambers, R., Popular Rhymes of Scotland (1826), p. 277 - the rowan-and-red-thread charm (as cited by the Dictionary of the Scots Language, 'rowan').",
+      "Sturluson, S., Prose Edda, Skaldskaparmal - Thor, the river Vimur and the rowan (Faulkes translation).",
+      "Grigson, G., The Englishman's Flora (1955), and Vickery, R., Vickery's Folk Flora (2019) - British and Irish rowan custom and names.",
+      "McNeill, F. M., The Silver Bough (1957-68) - Scottish calendar customs, including rowan at the quarter days."
+    ]
+  },
+  "weights_override": {
+    "weights": {
+      "terrain": 0.3,
+      "vegetation": 0.35,
+      "access": 0.2,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.55,
+      "slope": 0.25,
+      "aspect": 0.2
+    }
+  },
+  "observations": {
+    "taxon_name": "Sorbus",
+    "genus_fallback": null,
+    "$comment": "16 AOI records at genus level, 8 of them S. scopulina. Many of the low-elevation ones are town rowans, hence the down-weight.",
+    "congeners_downweight": [
+      "Sorbus aucuparia"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 1000,
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Record p25 541 m is mostly town rowan; native records sit around 1,500-1,900 m (p75 1569, p95 1922). The band follows the native plants.",
+      "hard_min": 450,
+      "optimal_min": 800,
+      "optimal_max": 1950,
+      "hard_max": 2300
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 35,
+      "hard_max": 45
+    },
+    "aspect": {
+      "optimal_bearing_deg": 180.0,
+      "tolerance_deg": 120.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "hard_min": 0.3,
+      "optimal_min": 0.45,
+      "optimal_max": 0.9
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "$comment": "Open subalpine forest and edges are the optimum; avalanche tracks and subalpine openings (meadow class) close behind.",
+      "meadow": 0.75,
+      "open_forest": 1.0,
+      "closed_forest": 0.25,
+      "bare": 0.05
+    },
+    "logging": {
+      "$comment": "Moderate penalty: mountain-ash resprouts and does well in older clearings, but not fresh ones.",
+      "penalty": 0.6,
+      "recovery_years": 25
+    }
+  },
+  "imagery_window_override": null
+}
