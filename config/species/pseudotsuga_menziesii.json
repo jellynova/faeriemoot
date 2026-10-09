@@ -1,0 +1,129 @@
+{
+  "$comment": "Target profile for the region's dominant timber tree. Douglas-fir is also the chanterelle's primary host, so this profile and cantharellus_formosus.json share an affinity table shape but a different purpose: here the tree itself is the target, and the score is the Douglas-fir share of the stand.",
+  "id": "pseudotsuga_menziesii",
+  "common_name": "Douglas-fir",
+  "scientific_name": "Pseudotsuga menziesii",
+  "habitat_model": "host_trees",
+  "habitat_note": "Douglas-fir leads the dry, warm, low- to mid-elevation forests of the interior - the valley slopes and benches above the towns - and it is the most abundant tree in this AOI's inventory. Scored on its share of the stand from the BC forest inventory, times stand age and crown closure.",
+  "folk_magic": {
+    "$comment": "Labelled Indigenous where the record is Indigenous; the European settler use of the tree is mostly timber and pitch rather than magic.",
+    "folk_names": [
+      "Douglas-fir",
+      "Oregon pine",
+      "Douglas spruce",
+      "red fir"
+    ],
+    "traditions": [
+      "Northwest Coast and interior Indigenous nations",
+      "European settler and timber culture of the Pacific Northwest"
+    ],
+    "associations": [
+      {
+        "theme": "protection",
+        "note": "Douglas-fir boughs were used in protective and cleansing rites, hung to ward off harm, and the pitch was worked into protective and healing salves. The tree's protective role sits alongside cedar's in Northwest Coast practice - boughs of the two were often used together.",
+        "origin": "Northwest Coast and interior Indigenous nations; the protective use of conifer boughs and pitch is recorded throughout the region's ethnographic literature."
+      },
+      {
+        "theme": "purification",
+        "note": "Boughs and the smoke of boughs were used to cleanse and bless a person or a place, in the same family of practice as cedar smudging. Douglas-fir was one of the several conifers whose boughs served this purpose, not the only one.",
+        "origin": "Northwest Coast and interior Indigenous nations."
+      },
+      {
+        "theme": "healing",
+        "note": "The pitch or resin is the practical half of the tree's reputation: applied to wounds, sores and skin complaints as a salve, and the young tips and needles brewed as a tea valued for vitamin C. This is the use most often recorded for the tree by both Indigenous and settler communities.",
+        "origin": "Northwest Coast and interior Indigenous nations for the salve and the needle tea; European settler practice in the Pacific Northwest adopted the same uses."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "The resin is a contact irritant and a sensitiser, and can cause a rash on handling or on skin already damaged. Needle tea is a traditional preparation but is not a medicine to drink in quantity, and Douglas-fir pollen is a significant allergen in the region. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Turner, N. J., and Moerman, D. - Indigenous use of Pseudotsuga menziesii for medicine and ceremony.",
+      "Gunther, E., Ethnobotany of Western Washington - Northwest Coast use.",
+      "Pilz, D., et al., USDA PNW-GTR-576 - the species' mycorrhizal role, which the chanterelle profile is built on."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Habitat component is 'forest'; aspect zero-weighted for the same reason as cedar - which trees are present already encodes the site.",
+    "weights": {
+      "terrain": 0.25,
+      "forest": 0.45,
+      "access": 0.20,
+      "observations": 0.10
+    },
+    "terrain_subweights": {
+      "elevation": 0.7,
+      "slope": 0.3,
+      "aspect": 0.0
+    }
+  },
+  "observations": {
+    "taxon_name": "Pseudotsuga menziesii",
+    "genus_fallback": "Pseudotsuga",
+    "$comment": "179 research-grade records in the AOI - genuine occurrences of the target tree, heavily biased to accessible ground, which is why the observation weight is kept low.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 1200,
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Valley bottom to mid slope. Douglas-fir gives way to spruce, fir and hemlock as you climb, so the upper ramp is the binding one here.",
+      "hard_min": 300,
+      "optimal_min": 400,
+      "optimal_max": 1300,
+      "hard_max": 1700
+    },
+    "slope_deg": {
+      "$comment": "Tolerates steep ground - it holds the dry slopes above the valley - so the ceiling is generous.",
+      "optimal_min": 0,
+      "optimal_max": 35,
+      "hard_max": 50
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "forest": {
+    "host_label": "Douglas-fir",
+    "host_label_plural": "Douglas-firs",
+    "host_affinity": {
+      "$comment": "Douglas-fir is the target, so it is the only species that counts; every other code falls to default_affinity 0.0. The chanterelle profile's table weights several species because a fungus can use several hosts - a tree profile cannot.",
+      "FD": 1.0
+    },
+    "default_affinity": 0.0,
+    "host_fraction": {
+      "$comment": "A stand below a 20% Douglas-fir share is not Douglas-fir ground; full credit at 50%, since Douglas-fir commonly leads mixed stands.",
+      "hard_min": 0.2,
+      "saturation": 0.5
+    },
+    "stand_age_credit": {
+      "$comment_knots": "Faster to maturity than cedar: Douglas-fir is a fast early grower, and stands are worth scoring from the second decade. Old growth holds most of its credit.",
+      "knots": [
+        [0, 0.0],
+        [15, 0.3],
+        [50, 1.0],
+        [400, 0.9]
+      ]
+    },
+    "crown_closure_pct": {
+      "$comment": "Tolerates a range: Douglas-fir regenerates in the open and also grows in closed stands, so the optimal band is wide and the floor low.",
+      "hard_min": 10,
+      "optimal_min": 30,
+      "optimal_max": 100,
+      "hard_max": null
+    },
+    "missing_attribute_credit": 0.5
+  },
+  "imagery_window_override": null
+}

@@ -1,0 +1,147 @@
+{
+  "$comment": "Target profile for an epiphytic lichen. Old man's beard hangs from the branches of humid, old conifer forest, so the host_trees model fits it with almost no stretching: the 'host' is any conifer, and the age and closure bands are what really do the work, because this species needs stands old enough and closed enough to hold humidity.",
+  "id": "alectoria_sarmentosa",
+  "common_name": "Old man's beard",
+  "scientific_name": "Alectoria sarmentosa",
+  "habitat_model": "host_trees",
+  "habitat_note": "A hair lichen that drapes from the branches of conifers in humid, old, closed-canopy forest - the wetter interior cedar-hemlock and montane spruce-fir stands rather than the dry Douglas-fir slopes. Scored on conifer share of the stand times stand age times crown closure: the age and closure bands carry most of the signal, since the lichen needs decades to accumulate and cannot persist where the canopy is open and dry.",
+  "folk_magic": {
+    "$comment": "An honest entry. Alectoria's own magical record is thin and partly name-derived, and the profile says so rather than borrowing another plant's charms; the medicinal use is real and documented, and the 'witch's hair' name is genuinely part of the folklore.",
+    "folk_names": [
+      "old man's beard",
+      "witch's hair",
+      "horsehair lichen",
+      "tree moss"
+    ],
+    "traditions": [
+      "Northwest Coast and interior Indigenous nations (fibre, medicine and decoration)",
+      "European lichen lore (the beard-lichen names and their associations)"
+    ],
+    "associations": [
+      {
+        "theme": "protection",
+        "note": "The association here is mostly carried by the name. Beard lichens were called witch's hair, and the name is a piece of folklore in itself - the lichen was read as something of the witch's, hanging in the trees, and in European practice beard lichens were hung in the home and carried as charms against harm. For this species the record is thin and name-derived, and the profile does not dress it up as more than that.",
+        "origin": "European lichen lore for the witch's-hair name and the hanging and carrying customs; the specific record for Alectoria sarmentosa is thin."
+      },
+      {
+        "theme": "healing",
+        "note": "The documented use is medicinal and practical rather than magical: beard lichens were gathered and applied as a poultice to wounds and sores, and related lichens (Usnea) contain usnic acid, which is genuinely antibacterial - the reason the poultice tradition has some basis. Northwest Coast nations also used this lichen as an absorbent fibre, as a hair ornament, and as a material for clothing and padding.",
+        "origin": "Northwest Coast and interior Indigenous nations for the fibre, decoration and poultice uses; the Usnea antibiotic record is from European and later scientific sources."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "Lichens are not food, and some that look similar are genuinely poisonous - wolf lichen, which grows in the same region, is toxic. This lichen also accumulates heavy metals and airborne pollutants, which is what makes it a good bioindicator and a bad thing to eat. Deer and squirrels browse it; people should not. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Turner, N. J., and Moerman, D. - Indigenous use of hair lichens for fibre, decoration and medicine.",
+      "European lichen-lore compilations for the witch's-hair and beard-lichen traditions.",
+      "Standard lichenology references for usnic acid and for the heavy-metal accumulation that makes lichens unreliable as food."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Habitat component is 'forest'. Aspect zero-weighted: the lichen's requirement is a humid old canopy, which is a property of the stand rather than of the compass.",
+    "weights": {
+      "terrain": 0.20,
+      "forest": 0.50,
+      "access": 0.15,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.7,
+      "slope": 0.3,
+      "aspect": 0.0
+    }
+  },
+  "observations": {
+    "taxon_name": "Alectoria sarmentosa",
+    "genus_fallback": "Alectoria",
+    "$comment": "12 research-grade records in the AOI. Usnea (beard lichens, 3 records, almost all genus-level) is down-weighted as a look-alike: Usnea is the more drought-tolerant of the two, so its records would pull the ranking toward drier stands than this species occupies.",
+    "congeners_downweight": [
+      "Usnea"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 900,
+    "$comment_months": "No month filter: a lichen is visible and identifiable year round, and filtering to a field season would throw away real records for no reason.",
+    "months": null,
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Mid elevation, where the humid interior forest belt sits; it is not a valley-bottom or an alpine species here.",
+      "hard_min": 400,
+      "optimal_min": 500,
+      "optimal_max": 1300,
+      "hard_max": 1700
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 35,
+      "hard_max": 50
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "forest": {
+    "host_label": "conifer",
+    "host_label_plural": "conifers",
+    "host_affinity": {
+      "$comment": "Every conifer is a potential substrate, so the table spreads the credit across the conifers rather than picking one. Hemlock, cedar and the true firs score highest because the lichen's stronghold is the humid cedar-hemlock and montane fir forest; hardwoods are given a little credit because the lichen will hang in a mixed stand that has conifers in it, but a pure hardwood stand is not its habitat. Cedar and yew are included as substrates here, unlike in the chanterelle profile, where they were excluded for a biological reason that does not apply to a lichen: an epiphyte needs a branch, not a mycorrhizal root.",
+      "HW": 0.9,
+      "HM": 0.9,
+      "CW": 0.9,
+      "YC": 0.9,
+      "FD": 0.8,
+      "BL": 0.8,
+      "BG": 0.8,
+      "BA": 0.8,
+      "B": 0.8,
+      "SS": 0.8,
+      "SX": 0.8,
+      "SE": 0.8,
+      "S": 0.8,
+      "PL": 0.7,
+      "PW": 0.6,
+      "LW": 0.7,
+      "L": 0.7,
+      "LA": 0.5,
+      "PY": 0.6,
+      "PA": 0.5,
+      "TW": 0.3,
+      "AT": 0.2,
+      "AC": 0.2,
+      "EP": 0.2,
+      "DR": 0.2,
+      "MB": 0.2
+    },
+    "default_affinity": 0.0,
+    "host_fraction": {
+      "$comment": "Needs a genuinely coniferous stand - a third of the stand before it counts, and full credit at 70% - because the lichen needs branches to hang from and a closed canopy to hold the humidity.",
+      "hard_min": 0.3,
+      "saturation": 0.7
+    },
+    "stand_age_credit": {
+      "$comment_knots": "This is the profile where age matters most. A hair lichen takes decades to accumulate, so young and middle-aged stands score little and only old forest approaches full credit. Unlike birch, old growth does not decline - a very old stand is the best habitat there is.",
+      "knots": [
+        [0, 0.0],
+        [60, 0.15],
+        [120, 0.6],
+        [200, 1.0],
+        [600, 1.0]
+      ]
+    },
+    "crown_closure_pct": {
+      "$comment": "A high floor and a high optimal band: an open canopy means a dry canopy, and a dry canopy means no hair lichen. This is the opposite of the birch profile, and deliberately so.",
+      "hard_min": 30,
+      "optimal_min": 55,
+      "optimal_max": 100,
+      "hard_max": null
+    },
+    "missing_attribute_credit": 0.5
+  },
+  "imagery_window_override": null
+}

@@ -1,0 +1,126 @@
+{
+  "$comment": "Target profile for a dry-site aromatic herb. Western mugwort is the native Artemisia of the interior, a plant of open dry ground and a staple of ceremonial smudging; absinthe wormwood (A. absinthium, introduced) is down-weighted as a congener because it follows roadsides rather than native dry ground.",
+  "id": "artemisia_ludoviciana",
+  "common_name": "Western mugwort",
+  "scientific_name": "Artemisia ludoviciana",
+  "habitat_model": "spectral",
+  "habitat_note": "Dry open ground: grassland, sandy and gravelly benches, open pine and Douglas-fir forest, roadsides and rocky slopes, low to mid elevation. Wants light and drainage, and spreads by rhizome into loose colonies, so it is scored as open, gently sloped, dry ground with a low vegetation floor.",
+  "folk_magic": {
+    "$comment": "Two traditions meet on this plant: the ceremonial smudging of the Plains and Plateau nations, and the European mugwort lore of the related Artemisia vulgaris. They are kept separate because the plants and the practices are different.",
+    "folk_names": [
+      "western mugwort",
+      "white sagebrush",
+      "prairie sage",
+      "silver wormwood",
+      "man sage"
+    ],
+    "traditions": [
+      "Plains and Plateau Indigenous nations",
+      "European folk magic (mugwort lore, principally Artemisia vulgaris)"
+    ],
+    "associations": [
+      {
+        "theme": "purification",
+        "note": "Burned as a smudge for purification and blessing: to cleanse a person, a home, a space or an object, and to prepare for ceremony. It is one of the standard smudging plants of the Plains and Plateau, used both on its own and alongside other aromatics, and the practice continues.",
+        "origin": "Plains and Plateau Indigenous nations; the ceremonial use is recorded in the ethnographic literature and remains in practice."
+      },
+      {
+        "theme": "protection",
+        "note": "Carried or worn as a protective plant and hung in the home to keep harm out, and burned to protect a space before and during ceremony. The European mugwort carried a comparable protective role, hung over doors and carried against harm and wild beasts.",
+        "origin": "Plains and Plateau Indigenous protective use; European tradition for Artemisia vulgaris, the mugwort of European folk magic."
+      },
+      {
+        "theme": "dreams",
+        "note": "Mugwort is the classic dream herb of European practice: placed under the pillow, or burned before sleep, to bring vivid and prophetic dreams and to aid divination. The association attaches to the European plant, and the North American Artemisia species are used for it in modern practice on the strength of the shared genus.",
+        "origin": "European folk magic for Artemisia vulgaris; the pillow and dream use is one of the best-known entries in the European plant-magic repertoire."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "Artemisia species contain thujone, which matters in quantity. Mugwort is traditionally avoided in pregnancy because it can stimulate the uterus, it can cause contact dermatitis in sensitive people, and prolonged heavy internal use is not advisable. Burning it for smudge is a different act from ingesting it, though the smoke is still an irritant. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Moerman, D., Native American Ethnobotany - Plains and Plateau use of Artemisia ludoviciana.",
+      "Turner, N. J. - interior BC and Plateau use of Artemisia species.",
+      "European folk-magic compilations for Artemisia vulgaris and the dream and protective uses."
+    ]
+  },
+  "weights_override": {
+    "$comment": "A modest aspect weight: like the other dry-ground species here, mugwort's best ground is the sunny side.",
+    "weights": {
+      "terrain": 0.30,
+      "vegetation": 0.35,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.55,
+      "slope": 0.25,
+      "aspect": 0.20
+    }
+  },
+  "observations": {
+    "taxon_name": "Artemisia ludoviciana",
+    "genus_fallback": "Artemisia",
+    "$comment": "15 research-grade records in the AOI. Absinthe wormwood (A. absinthium, 4 records) is down-weighted: it is an introduced roadside plant of enriched ground, not a native dry-site Artemisia.",
+    "congeners_downweight": [
+      "Artemisia absinthium"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 800,
+    "months": [
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Low to mid elevation, following the dry valley slopes.",
+      "hard_min": 250,
+      "optimal_min": 400,
+      "optimal_max": 1300,
+      "hard_max": 1750
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 30,
+      "hard_max": 45
+    },
+    "aspect": {
+      "optimal_bearing_deg": 190.0,
+      "tolerance_deg": 95.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "$comment": "A low floor: mugwort is silvery and grows on loose, sparsely vegetated ground, so its signal is weaker than a green meadow species'.",
+      "hard_min": 0.22,
+      "optimal_min": 0.35,
+      "optimal_max": 0.85
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "$comment": "Open forest scores well above the arnica value: mugwort is a common understory plant of open pine and Douglas-fir stands.",
+      "meadow": 1.0,
+      "open_forest": 0.75,
+      "closed_forest": 0.2,
+      "bare": 0.12
+    },
+    "logging": {
+      "penalty": 0.7,
+      "recovery_years": 25
+    }
+  },
+  "imagery_window_override": null
+}

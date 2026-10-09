@@ -5,8 +5,9 @@ can use: PNG overlays reprojected to WGS84 (Leaflet's ``imageOverlay`` treats
 an image as equirectangular, so a UTM PNG would sit visibly askew), simplified
 GeoJSON for the vector toggles, and a manifest the UI configures itself from.
 
-Everything lands in ``web/data/<aoi_id>/``, so dropping in a new AOI produces a
-parallel directory and the UI picks it up without code changes.
+Everything lands in ``web/data/<aoi_id>/<species_id>/``, so dropping in a new
+AOI or a new target produces a parallel directory and the UI picks it up
+without code changes.
 """
 
 from __future__ import annotations
@@ -24,6 +25,8 @@ from rasterio.warp import reproject
 from ..config import Config
 from ..grid import Grid
 from ..sources.bcdata import aoi_bbox_albers, fetch_layer
+from .forest import class_names as forest_class_names
+from .vegetation import CLASS_NAMES as VEG_CLASS_NAMES
 
 # Compact colour ramps as (stop, r, g, b). Hand-rolled to avoid a matplotlib
 # dependency for what amounts to six lookup tables.
@@ -34,6 +37,12 @@ RAMPS = {
                   (0.8, 160, 130, 110), (1.0, 250, 250, 252)],
     "slope": [(0.0, 255, 255, 204), (0.4, 253, 176, 74), (0.7, 227, 90, 60), (1.0, 128, 0, 38)],
     "ndvi": [(0.0, 140, 100, 60), (0.4, 220, 210, 140), (0.7, 90, 170, 70), (1.0, 10, 80, 30)],
+    # The moisture layer is exported as a *credit* (score_moisture: 1 = wettest),
+    # so the ramp runs pale -> deep blue and matches the legend gradient in
+    # web/app.js. The riparian model this replaced drew distance instead, where
+    # the direction is reversed; that ramp is not used here.
+    "water": [(0.0, 245, 235, 210), (0.4, 160, 200, 200), (0.7, 70, 140, 190), (1.0, 20, 60, 130)],
+    "host": [(0.0, 245, 240, 225), (0.3, 200, 190, 110), (0.6, 120, 150, 60), (1.0, 30, 80, 40)],
 }
 
 # Cyclic ramp so north wraps cleanly; used for aspect.
@@ -48,6 +57,14 @@ VEG_COLOURS = {
     5: (198, 122, 62),    # regenerating cutblock
 }
 
+FOREST_COLOURS = {
+    1: (205, 195, 160),   # non-forest
+    2: (120, 120, 150),   # forest, no hosts
+    3: (150, 175, 90),    # forest, some hosts
+    4: (35, 110, 50),     # host-rich forest
+    5: (198, 122, 62),    # young / recently harvested
+}
+
 TENURE_COLOURS = {
     1: (200, 170, 90),    # woodlot
     2: (220, 120, 120),   # private
@@ -57,6 +74,11 @@ TENURE_COLOURS = {
     6: (170, 100, 180),   # ecological reserve
     7: (60, 130, 90),     # national park
 }
+
+
+def _legend(colours: dict, names: dict) -> list[list[str]]:
+    """[[hex, label], ...] so the UI draws categorical legends from the manifest."""
+    return [["#{:02x}{:02x}{:02x}".format(*colours[k]), names[k]] for k in colours if k in names]
 
 
 def _ramp_lut(stops) -> np.ndarray:
@@ -129,10 +151,10 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     if grid is None:
         _, grid = Grid.read(cfg.interim("elevation.tif"))
 
-    web_dir = cfg.root / "web" / "data" / cfg.aoi_id
+    web_dir = cfg.root / "web" / "data" / cfg.run_id
     web_dir.mkdir(parents=True, exist_ok=True)
     bounds = tuple(float(b) for b in cfg.aoi.total_bounds)
-    log(f"[export] writing web assets to web/data/{cfg.aoi_id}/")
+    log(f"[export] writing web assets to web/data/{cfg.run_id}/")
 
     layers: dict[str, dict] = {}
 
@@ -158,13 +180,32 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
         layers["aspect"] = {"label": "Aspect", "file": "aspect.png", "type": "cyclic"}
         log("    aspect.png")
 
-    veg = _safe_read(cfg, "veg_class")
+    veg = _safe_read(cfg, "veg_class") if cfg.habitat_layer == "vegetation" else None
     if veg is not None:
         _categorical_overlay(web_dir / "vegetation.png", veg, grid, bounds, VEG_COLOURS)
         layers["vegetation"] = {"label": "Vegetation class", "file": "vegetation.png",
-                                "type": "categorical"}
+                                "type": "categorical",
+                                "legend": _legend(VEG_COLOURS, VEG_CLASS_NAMES)}
         log("    vegetation.png")
 
+    if cfg.habitat_layer == "forest":
+        fclass = _safe_read(cfg, "forest_class")
+        if fclass is not None:
+            _categorical_overlay(web_dir / "forest.png", fclass, grid, bounds, FOREST_COLOURS)
+            layers["forest"] = {"label": "Forest / host trees", "file": "forest.png",
+                                "type": "categorical",
+                                "legend": _legend(FOREST_COLOURS,
+                                                  forest_class_names(cfg.species.get("forest")))}
+            log("    forest.png")
+        host_term = (cfg.species.get("forest") or {}).get("host_label") or "host-tree"
+        add_continuous("host_fraction", "host_fraction", RAMPS["host"],
+                       f"{host_term[0].upper()}{host_term[1:]} share", vmin=0.0, vmax=1.0)
+        add_continuous("stand_age", "stand_age", RAMPS["ndvi"], "Stand age (years)",
+                       vmin=0.0, vmax=200.0)
+
+    if "moisture" in cfg.optional_layers:
+        add_continuous("moisture", "score_moisture", RAMPS["water"], "Moisture credit",
+                       vmin=0.0, vmax=1.0)
     logging_age = _safe_read(cfg, "logging_age")
     if logging_age is not None and np.isfinite(logging_age).any():
         stats = _continuous_overlay(web_dir / "logging_age.png", logging_age, grid, bounds,
@@ -178,7 +219,7 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     if tenure is not None:
         _categorical_overlay(web_dir / "land_tenure.png", tenure, grid, bounds, TENURE_COLOURS)
         layers["land_tenure"] = {"label": "Land tenure", "file": "land_tenure.png",
-                                 "type": "categorical"}
+                                 "type": "categorical", "legend_key": "land_tenure"}
         log("    land_tenure.png")
 
     # ---- vector layers ---------------------------------------------------
@@ -203,14 +244,21 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     return {"layers": list(layers)}
 
 
+# Layers that only ever exist per species. These are never read from the
+# shared directory, where a build from before species were separated may have
+# left a copy made with another profile's thresholds.
+SPECIES_LAYERS = {"score_total", "veg_class", "forest_class", "host_fraction", "score_moisture"}
+
 def _safe_read(cfg: Config, name: str):
-    path = cfg.interim(f"{name}.tif")
-    if not path.exists():
-        path = cfg.output(f"{name}.tif")
-    if not path.exists():
-        return None
-    with rasterio.open(path) as src:
-        return src.read(1).astype("float32")
+    """Species layer, then shared layer, then the species output directory."""
+    paths = [cfg.species_interim(f"{name}.tif"), cfg.output(f"{name}.tif")]
+    if name not in SPECIES_LAYERS:
+        paths.insert(1, cfg.interim(f"{name}.tif"))
+    for path in paths:
+        if path.exists():
+            with rasterio.open(path) as src:
+                return src.read(1).astype("float32")
+    return None
 
 
 def _export_vectors(cfg: Config, web_dir, log=print) -> None:
@@ -255,19 +303,22 @@ def _export_vectors(cfg: Config, web_dir, log=print) -> None:
 
 
 def _write_index(cfg: Config, log=print) -> None:
-    """List every built AOI so the UI can offer a region switcher."""
+    """List every built AOI x species so the UI can offer a switcher."""
     data_root = cfg.root / "web" / "data"
     entries = []
-    for d in sorted(p for p in data_root.iterdir() if p.is_dir()):
-        mf = d / "manifest.json"
-        if not mf.exists():
-            continue
+    # web/data/<aoi>/<species>/manifest.json. A manifest directly under <aoi>/
+    # is a build from before targets were separated; it is skipped rather than
+    # listed, since its layer files are laid out differently.
+    for mf in sorted(data_root.glob("*/*/manifest.json")):
+        d = mf.parent
         m = json.loads(mf.read_text())
+        sp = m.get("species", {})
         entries.append({
-            "id": d.name,
-            "label": m.get("aoi", {}).get("label", d.name),
-            "species": m.get("species", {}).get("scientific_name"),
+            "id": f"{d.parent.name}/{d.name}",
+            "label": m.get("aoi", {}).get("label", d.parent.name),
+            "species": sp.get("scientific_name"),
+            "common_name": sp.get("common_name"),
             "sites": m.get("counts", {}).get("sites", 0),
         })
     (data_root / "index.json").write_text(json.dumps({"areas": entries}, indent=2))
-    log(f"    index.json ({len(entries)} area(s))")
+    log(f"    index.json ({len(entries)} area/species build(s))")

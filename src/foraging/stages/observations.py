@@ -34,14 +34,57 @@ WEIGHT_CONGENER = 0.2
 WEIGHT_OTHER = 0.5
 
 
+def is_target(taxon: str | None, target: str) -> bool:
+    """``taxon`` is the target or one of its descendants.
+
+    iNaturalist returns a record under the most specific name it was identified
+    to, so a target is matched by name prefix: western fly agaric records come
+    back as *Amanita muscaria flavivolvata*, and a genus-level target such as
+    *Rosa* sees its records as *Rosa nutkana*, *Rosa woodsii* and so on. Both are
+    the target, not "other".
+    """
+    if not isinstance(taxon, str) or not taxon:
+        return False
+    return taxon == target or taxon.startswith(target + " ")
+
+
 def _weight_for(taxon: str | None, target: str, downweight: set[str]) -> float:
     if not taxon:
         return WEIGHT_OTHER
-    if taxon == target:
-        return WEIGHT_EXACT
+    # Down-weighting is checked first so a profile can exclude one descendant
+    # of a genus-level target, e.g. a garden escape.
     if taxon in downweight:
         return WEIGHT_CONGENER
+    if is_target(taxon, target):
+        return WEIGHT_EXACT
     return WEIGHT_OTHER
+
+
+def filter_usable(obs, max_accuracy_m: float, log=print):
+    """Drop records whose public coordinates cannot be placed on the grid.
+
+    * **Obscured** records - threatened taxa, or an observer's geoprivacy
+      setting - publish a point randomised within a ~0.2 degree cell, roughly
+      20 x 15 km here. Their ``positional_accuracy`` is the observer's GPS
+      figure and says nothing about the obscuring, so it cannot catch them.
+      Foragers obscure their spots: every golden-chanterelle record in the
+      Kootenays is obscured. Boosting around one boosts a random spot.
+    * Records whose stated accuracy is coarser than ``max_accuracy_m``.
+
+    Records with no stated accuracy are kept; most iNaturalist records lack
+    one, and dropping them all would empty the layer.
+    """
+    if not len(obs):
+        return obs
+    obscured = obs["obscured"].fillna(False).astype(bool)
+    acc = obs["accuracy_m"]
+    coarse = acc.notna() & (acc > max_accuracy_m) & ~obscured
+    n_obscured, n_coarse = int(obscured.sum()), int(coarse.sum())
+    drop = obscured | coarse
+    if n_obscured or n_coarse:
+        log(f"[observations] dropped {n_obscured} obscured and {n_coarse} record(s) "
+            f"coarser than {max_accuracy_m:g} m")
+    return obs[~drop]
 
 
 def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
@@ -80,11 +123,12 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     if len(obs):
         obs = obs.drop_duplicates(subset="id")
         obs = obs[obs.geometry.within(cfg.aoi_geom)]
+        obs = filter_usable(obs, max_accuracy_m=float(ocfg.get("max_accuracy_m", radius_m)), log=log)
 
     if not len(obs):
         log("[observations] none found - the layer contributes a flat baseline")
         boost = np.full(grid.shape, baseline, dtype="float32")
-        grid.write(cfg.interim("score_observations.tif"), boost)
+        grid.write(cfg.species_interim("score_observations.tif"), boost)
         return {"observations": 0}
 
     obs["weight"] = [_weight_for(t, target, downweight) for t in obs["taxon"]]
@@ -117,7 +161,7 @@ def run(cfg: Config, grid: Grid | None = None, log=print) -> dict:
     inside = grid.mask_from(cfg.aoi, all_touched=True)
     score[~inside] = np.nan
 
-    grid.write(cfg.interim("score_observations.tif"), score)
+    grid.write(cfg.species_interim("score_observations.tif"), score)
     obs_out = obs[["id", "taxon", "observed_on", "accuracy_m", "obscured", "url", "weight", "geometry"]]
     obs_out.to_file(cfg.output("observations.geojson"), driver="GeoJSON")
 

@@ -140,6 +140,13 @@ def logging_age(cfg: Config, grid: Grid, log=print) -> np.ndarray:
 
 
 def run(cfg: Config, grid: Grid | None = None, log=print, reuse_indices: bool = False) -> dict:
+    if cfg.habitat_layer != "vegetation":
+        # Not an error: a host-tree species gets its habitat signal from the
+        # forest stage, and the Sentinel-2 download is the slowest thing in the
+        # pipeline, so it is not done for nothing.
+        log(f"[vegetation] skipped - {cfg.species_id} uses habitat_model "
+            f"'{cfg.habitat_model}' (see the forest stage)")
+        return {"skipped": True}
     if grid is None:
         _, grid = Grid.read(cfg.interim("elevation.tif"))
 
@@ -285,7 +292,11 @@ def classify(cfg: Config, grid: Grid, ndvi, ndmi, texture, log=print) -> dict:
     openness_credit[bare] = pref["bare"]
     openness_credit[~np.isfinite(closure)] = np.nan
 
-    ndvi_fit = trapezoid(ndvi, ndvi_cfg["hard_min"], ndvi_cfg["optimal_min"], ndvi_cfg["optimal_max"], None)
+    # hard_max is optional: a dry-ground species (mullein, sage) is wrong on
+    # lush ground, so its fit can fall off above optimal_max. Without one, high
+    # NDVI keeps full credit, which is right for a meadow plant.
+    ndvi_fit = trapezoid(ndvi, ndvi_cfg["hard_min"], ndvi_cfg["optimal_min"], ndvi_cfg["optimal_max"],
+                         ndvi_cfg.get("hard_max"))
     score = (ndvi_fit * openness_credit).astype("float32")
 
     if cfg.weights["hard_filters"].get("enforce_ndvi_hard_min", True):
@@ -323,9 +334,9 @@ def classify(cfg: Config, grid: Grid, ndvi, ndmi, texture, log=print) -> dict:
     grid.write(cfg.interim("ndvi.tif"), ndvi)
     grid.write(cfg.interim("ndmi.tif"), ndmi)
     grid.write(cfg.interim("ndvi_texture.tif"), texture)
-    grid.write(cfg.interim("canopy_closure.tif"), closure.astype("float32"))
-    grid.write(cfg.interim("score_vegetation.tif"), score)
-    grid.write(cfg.interim("veg_class.tif"), veg_class, dtype="uint8")
+    grid.write(cfg.species_interim("canopy_closure.tif"), closure.astype("float32"))
+    grid.write(cfg.species_interim("score_vegetation.tif"), score)
+    grid.write(cfg.species_interim("veg_class.tif"), veg_class, dtype="uint8")
 
     counts = {CLASS_NAMES[k]: int((veg_class == k).sum()) for k in CLASS_NAMES}
     total = max(sum(counts.values()), 1)

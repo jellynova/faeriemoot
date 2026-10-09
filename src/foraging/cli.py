@@ -14,7 +14,16 @@ import typer
 from rich.console import Console
 
 from .config import load_config
-from .stages import access, export, landstatus, observations, scoring, terrain, vegetation
+from .stages import (
+    access,
+    export,
+    forest,
+    landstatus,
+    moisture,
+    observations,
+    scoring,
+    terrain,
+    vegetation,)
 
 app = typer.Typer(add_completion=False, help="Foraging suitability mapper.")
 console = Console()
@@ -22,15 +31,18 @@ console = Console()
 STAGES = {
     "terrain": terrain.run,
     "vegetation": vegetation.run,
-    "access": access.run,
+    "forest": forest.run,
+    "moisture": moisture.run,    "access": access.run,
     "observations": observations.run,
     "landstatus": landstatus.run,
     "scoring": scoring.run,
     "export": export.run,
 }
 
-ORDER = ["terrain", "vegetation", "access", "observations", "landstatus", "scoring", "export"]
-
+# vegetation and forest are alternative habitat stages; each skips itself unless
+# the species profile's habitat_model selects it. moisture is an optional extra
+# component that skips itself unless the profile has a moisture block.
+ORDER = ["terrain", "vegetation", "forest", "moisture", "access", "observations", "landstatus", "scoring", "export"]
 ConfigOpt = typer.Option("config/pipeline.json", "--config", "-c", help="Pipeline config file.")
 AoiOpt = typer.Option(None, "--aoi", help="AOI polygon, overriding the config. Re-targets the whole pipeline.")
 SpeciesOpt = typer.Option(None, "--species", help="Species profile, overriding the config.")
@@ -66,7 +78,7 @@ def run(
         False, "--reuse-imagery",
         help="Reuse cached Sentinel-2 index composites instead of re-downloading."),
 ):
-    """Run the full pipeline: terrain -> vegetation -> access -> observations -> land status -> scoring -> export."""
+    """Run the full pipeline: terrain -> vegetation | forest -> [moisture] -> access -> observations -> land status -> scoring -> export."""
     cfg = load_config(config, aoi=aoi, species=species)
     _banner(cfg)
 
@@ -85,7 +97,7 @@ def run(
 
     _say(f"[bold green]Pipeline complete in {time.time() - started:.1f}s[/bold green]")
     _say(f"Ranked sites: {cfg.output('sites.geojson').relative_to(cfg.root)}")
-    _say(f"Web assets:   web/data/{cfg.aoi_id}/")
+    _say(f"Web assets:   web/data/{cfg.run_id}/")
     _say("\nServe the map with:  [bold]python -m http.server -d web 8000[/bold]")
 
 
@@ -118,7 +130,7 @@ def areas(config: str = ConfigOpt):
 def _banner(cfg) -> None:
     sp = cfg.species
     _say(f"[bold]{cfg.aoi_label}[/bold]  |  {sp.get('common_name')} "
-         f"([italic]{sp.get('scientific_name')}[/italic])")
+         f"([italic]{sp.get('scientific_name')}[/italic])  |  habitat: {cfg.habitat_model}")
     _say(f"[dim]grid {cfg.resolution:g} m  |  origin {cfg.pipeline['access']['origin']['name']}[/dim]\n")
 
 

@@ -1,0 +1,129 @@
+{
+  "$comment": "Target profile for a hardwood tree. Paper birch is a short-lived pioneer of moist, disturbed ground - it is also the host the fly agaric profile depends on, so the two profiles share an affinity code (EP) from opposite directions.",
+  "id": "betula_papyrifera",
+  "common_name": "Paper birch",
+  "scientific_name": "Betula papyrifera",
+  "habitat_model": "host_trees",
+  "habitat_note": "Paper birch is a pioneer hardwood of moist, disturbed and early-successional ground - burns, cutblocks, stream terraces, swamp edges and the margins of wet forest - and it declines as the conifers close over it. Scored on its share of the stand from the BC forest inventory, times stand age and crown closure, with the age curve falling away in old stands because birch is short-lived.",
+  "folk_magic": {
+    "folk_names": [
+      "paper birch",
+      "canoe birch",
+      "white birch",
+      "the white lady of the woods"
+    ],
+    "traditions": [
+      "Indigenous nations across northern North America",
+      "European and Nordic folk tradition (birch lore, principally Betula pendula and B. pubescens)"
+    ],
+    "associations": [
+      {
+        "theme": "protection",
+        "note": "Birch was a protective tree in European tradition: birch besoms were used to sweep ill luck and evil out of a house, birch was planted or hung at the door to keep harm out, and birch bark was carried in protective charms. The sweeping custom is the best known - the besom was not only a broom but a tool for clearing a house of what should not be in it.",
+        "origin": "European folk tradition, especially the British Isles and Scandinavia; the besom and doorway uses are widely recorded."
+      },
+      {
+        "theme": "purification",
+        "note": "In Nordic and Finnish practice birch is the plant of the sauna: bundles of leafy birch (vihta or vasta) are used to beat the skin during a wash, which is a cleansing act in both the practical and the ritual sense, and birch smoke and steam were used to purify. The tree's whiteness and its association with spring and light are part of why.",
+        "origin": "Nordic and Finnish folk tradition; the sauna use is a living practice rather than a historical one."
+      },
+      {
+        "theme": "spirit-work",
+        "note": "In Siberian shamanic tradition the birch is the shaman's tree - a ladder between worlds, and the material of the drum - and birch stands were places of ceremony. North American birch carried a different but equally central role as the material of the canoe, the container and the lodge, and birch bark scrolls and baskets carry ceremonial meaning.",
+        "origin": "Siberian shamanic tradition for the world-tree and drum associations; Indigenous northern North American nations for the material and ceremonial record."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "Birch bark and its oil contain methyl salicylate, which is related to aspirin: the oil is toxic in quantity, should not be taken internally, and interacts with blood thinners. Birch pollen is one of the major hay-fever allergens. The bark and sap are used as food and drink in many traditions and are not otherwise hazardous. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "European and Nordic folk-magic compilations for the besom, doorway and sauna uses.",
+      "Siberian shamanic ethnography for the birch as the shaman's tree.",
+      "Moerman, D., Native American Ethnobotany, and Turner, N. J. - Indigenous North American use of paper birch."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Habitat component is 'forest'. Aspect zero-weighted; birch follows moisture and disturbance rather than a compass direction.",
+    "weights": {
+      "terrain": 0.25,
+      "forest": 0.45,
+      "access": 0.20,
+      "observations": 0.10
+    },
+    "terrain_subweights": {
+      "elevation": 0.7,
+      "slope": 0.3,
+      "aspect": 0.0
+    }
+  },
+  "observations": {
+    "taxon_name": "Betula papyrifera",
+    "genus_fallback": "Betula",
+    "$comment": "47 research-grade records in the AOI.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 1000,
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "A low- to mid-elevation tree here; it thins out above the montane forest.",
+      "hard_min": 250,
+      "optimal_min": 350,
+      "optimal_max": 1100,
+      "hard_max": 1500
+    },
+    "slope_deg": {
+      "$comment": "Favours gentler ground than Douglas-fir - it is a tree of benches, terraces and moist lower slopes.",
+      "optimal_min": 0,
+      "optimal_max": 28,
+      "hard_max": 45
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "forest": {
+    "host_label": "birch",
+    "host_label_plural": "birches",
+    "host_affinity": {
+      "$comment": "Birch is the target, so EP (paper birch) is the only code that counts. Note that the fly agaric profile gives EP a high affinity for the opposite reason: there the birch is the host for a fungus, here it is the thing being looked for.",
+      "EP": 1.0
+    },
+    "default_affinity": 0.0,
+    "host_fraction": {
+      "$comment": "A lower bar than the conifers: birch rarely forms pure stands here, so a 15% share already means real birch presence, and full credit comes at 40%.",
+      "hard_min": 0.15,
+      "saturation": 0.4
+    },
+    "stand_age_credit": {
+      "$comment_knots": "Birch is a fast pioneer and a short-lived tree: it establishes quickly, peaks in middle age, and is in decline in old stands as the conifers close over it. The curve reflects that - this is the only profile in the set whose age credit falls meaningfully in old growth.",
+      "knots": [
+        [0, 0.0],
+        [15, 0.5],
+        [40, 1.0],
+        [120, 0.6],
+        [200, 0.3]
+      ]
+    },
+    "crown_closure_pct": {
+      "$comment": "Needs light: birch is a pioneer that is shaded out by a closing canopy, so the optimal band stops well short of full closure and dense stands score less.",
+      "hard_min": 10,
+      "optimal_min": 25,
+      "optimal_max": 80,
+      "hard_max": 100
+    },
+    "missing_attribute_credit": 0.5
+  },
+  "imagery_window_override": null
+}

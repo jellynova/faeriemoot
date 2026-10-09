@@ -23,14 +23,6 @@
     observations: { label: "iNaturalist records", file: "observations.geojson", colour: "#e2679a", points: true }
   };
 
-  var VEG_LEGEND = [
-    ["#78c85a", "Open meadow"],
-    ["#3c8c50", "Open forest"],
-    ["#19462d", "Closed forest"],
-    ["#c67a3e", "Regenerating cutblock"],
-    ["#aa9682", "Bare / rock / scree"]
-  ];
-
   var TENURE_LEGEND = [
     ["#5aaa6e", "Provincial park"],
     ["#dc7878", "Private property"],
@@ -106,7 +98,8 @@
         idx.areas.forEach(function (a) {
           var o = document.createElement("option");
           o.value = a.id;
-          o.textContent = a.label + " (" + a.sites + " sites)";
+          o.textContent = a.label + " - " + (a.common_name || a.species || "?") +
+            " (" + a.sites + " sites)";
           sel.appendChild(o);
         });
         sel.addEventListener("change", function () { loadArea(sel.value); });
@@ -152,6 +145,7 @@
     var sp = m.species || {};
     $("species-line").textContent =
       (sp.common_name || "") + (sp.scientific_name ? " - " + sp.scientific_name : "");
+    renderFolkPanel(sp.folk_magic);
 
     var f = m.filters || {};
     var r = m.ranges || {};
@@ -169,10 +163,15 @@
 
     var w = m.imagery_window || {};
     var origin = m.origin || {};
+    var habitatSource = sp.habitat_model === "host_trees"
+      ? "Host trees from the BC Vegetation Resources Inventory."
+      : "Imagery " + (w.window_start || "") + " to " + (w.window_end || "") +
+        " across " + ((w.years || []).join(", ")) + ".";
+    if ((sp.optional_layers || []).indexOf("moisture") >= 0) {
+      habitatSource += " Moisture from BC's Freshwater Atlas and terrain position.";
+    }
     $("provenance").textContent =
-      "Drive times from " + (origin.name || "origin") + ". Imagery " +
-      (w.window_start || "") + " to " + (w.window_end || "") +
-      " across " + ((w.years || []).join(", ")) + ".";
+      "Drive times from " + (origin.name || "origin") + ". " + habitatSource;
 
     syncOutputs();
   }
@@ -210,11 +209,11 @@
 
     $("export-gpx").addEventListener("click", function () {
       var f = visibleSites();
-      if (f.length) download(current.id + "-sites.gpx", "application/gpx+xml", toGPX(f));
+      if (f.length) download(current.id.replace(/\//g, "-") + "-sites.gpx", "application/gpx+xml", toGPX(f));
     });
     $("export-csv").addEventListener("click", function () {
       var f = visibleSites();
-      if (f.length) download(current.id + "-sites.csv", "text/csv", toCSV(f));
+      if (f.length) download(current.id.replace(/\//g, "-") + "-sites.csv", "text/csv", toCSV(f));
     });
 
     $("sidebar-toggle").addEventListener("click", function () {
@@ -265,7 +264,15 @@
         fillColor: scoreColour(p.score),
         fillOpacity: 0.9
       });
-      marker.bindPopup(popupHTML(p, c), { maxWidth: 320 });
+      // The folk-magic block makes these popups tall - a four-association
+      // species runs past 1000 px. Cap the height at a fraction of the
+      // viewport and let Leaflet scroll the content: a popup taller than the
+      // space above its marker has its top run off the map, and autoPan does
+      // not rescue it.
+      marker.bindPopup(popupHTML(p, c), {
+        maxWidth: 360,
+        maxHeight: Math.max(240, Math.round(window.innerHeight * 0.45))
+      });
       marker.addTo(sitesLayer);
       markers.push(marker);
     });
@@ -334,6 +341,7 @@
         "<desc>" + esc(
           "score " + p.score.toFixed(3) +
           "; " + p.veg_class +
+          (p.leading_species ? "; leading " + p.leading_species : "") +
           "; slope " + p.slope_deg + " deg" +
           "; drive " + p.drive_minutes + " min" +
           "; hike " + p.hike_km + " km" +
@@ -347,7 +355,9 @@
 
   function toCSV(feats) {
     var cols = ["rank", "score", "lat", "lon", "elevation_m", "aspect_compass", "slope_deg",
-                "veg_class", "years_since_logging", "area_ha", "drive_minutes", "hike_km",
+                "veg_class", "leading_species", "host_fraction", "stand_age_years",
+                "water_distance_m",
+                "years_since_logging", "area_ha", "drive_minutes", "hike_km",
                 "hike_minutes", "land_status_label", "inat_nearby"];
     var rows = feats.map(function (f) {
       var p = f.properties, c = f.geometry.coordinates;
@@ -360,6 +370,66 @@
     return cols.join(",") + "\n" + rows.join("\n") + "\n";
   }
 
+  // ------------------------------------------------- folk magic & folklore
+  // Documentary, historical content shipped in the manifest (see
+  // src/foraging/folk_magic.py). It is framed as folklore wherever it appears,
+  // because that is what it is - not advice.
+  function themeChips(fm) {
+    var themes = (fm.associations || []).map(function (a) { return a.theme_label; });
+    var seen = {}, uniq = [];
+    themes.forEach(function (t) { if (t && !seen[t]) { seen[t] = 1; uniq.push(t); } });
+    if (!uniq.length) return "";
+    return '<span class="chips">' + uniq.map(function (t) {
+      return '<span class="chip">' + esc(t) + "</span>";
+    }).join("") + "</span>";
+  }
+
+  function safetyBox(fm) {
+    var s = (fm && fm.safety) || {};
+    if (!s.note) return "";
+    return '<div class="safety safety-' + esc(s.level || "caution") + '">' +
+      "<strong>" + esc(s.level_label || "") + "</strong> " + esc(s.note) + "</div>";
+  }
+
+  function folkMagicHTML(fm) {
+    if (!fm) return "";
+    var html = '<div class="folk"><h4>Folk magic &amp; folklore</h4>';
+    if ((fm.folk_names || []).length) {
+      html += '<div class="folk-names">' + fm.folk_names.map(esc).join(" &middot; ") + "</div>";
+    }
+    html += themeChips(fm);
+    html += (fm.associations || []).map(function (a) {
+      return '<div class="assoc"><div class="assoc-theme">' + esc(a.theme_label) + "</div>" +
+        "<p>" + esc(a.note) + "</p>" +
+        '<p class="origin">' + esc(a.origin) + "</p></div>";
+    }).join("");
+    html += safetyBox(fm);
+    if ((fm.sources || []).length) {
+      html += '<p class="folk-src">Sources: ' + fm.sources.map(esc).join("; ") + "</p>";
+    }
+    html += '<p class="folk-note">' + esc(fm.disclaimer || "") + "</p></div>";
+    return html;
+  }
+
+  function renderFolkPanel(fm) {
+    var panel = $("folk-panel"), body = $("folk-body");
+    if (!panel || !body) return;
+    if (!fm) { panel.hidden = true; body.innerHTML = ""; return; }
+    var html = "";
+    if ((fm.folk_names || []).length) {
+      html += '<div class="folk-names">' + fm.folk_names.map(esc).join(" &middot; ") + "</div>";
+    }
+    html += themeChips(fm);
+    if ((fm.traditions || []).length) {
+      html += '<p class="folk-trad">Traditions: ' + fm.traditions.map(esc).join("; ") + "</p>";
+    }
+    html += safetyBox(fm);
+    html += '<p class="folk-note">' + esc(fm.disclaimer || "") + "</p>";
+    html += '<p class="folk-hint">Full associations are on each site pin.</p>';
+    body.innerHTML = html;
+    panel.hidden = false;
+  }
+
   function bar(label, value) {
     var v = value === null || value === undefined ? 0 : value;
     return '<div class="bar-row"><span>' + label + "</span>" +
@@ -367,7 +437,47 @@
            Math.round(v * 100) + '%"></span></span><span>' + v.toFixed(2) + "</span></div>";
   }
 
+  function habitatModel() {
+    return ((current.manifest.species || {}).habitat_model) || "spectral";
+  }
+
+  function isHostModel() {
+    return habitatModel() === "host_trees";
+  }
+
+  // Detail rows for the habitat model in use. A forest pin and a meadow pin
+  // measure different things, so showing both sets would be noise; the water
+  // row is the exception, because moisture is an optional extra component that
+  // composes with either model rather than replacing one.
+  function habitatRows(p) {
+    var model = habitatModel();
+    var rows = "";
+    if (model === "host_trees") {
+      var hostLabel = (current.manifest.species || {}).host_label;
+      var shareLabel = hostLabel
+        ? hostLabel.charAt(0).toUpperCase() + hostLabel.slice(1) + " share"
+        : "Host share";
+      rows += "<dt>Leading tree</dt><dd>" + (p.leading_species || "-") + "</dd>" +
+        "<dt>" + esc(shareLabel) + "</dt><dd>" +
+        fmt(p.host_fraction === null ? null : p.host_fraction * 100, 0, "%") + "</dd>" +
+        "<dt>Stand age</dt><dd>" + fmt(p.stand_age_years, 0, " yr") + "</dd>";
+    } else {
+      rows += "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>";
+    }
+    if (p.water_distance_m !== undefined && p.water_distance_m !== null) {
+      rows += "<dt>Nearest water</dt><dd>" + fmt(p.water_distance_m, 0, " m") + "</dd>";
+    }
+    return rows;
+  }
+
+  function habitatClassLabel() {
+    return isHostModel() ? "Forest" : "Vegetation";
+  }
+
   function popupHTML(p, coords) {
+    var hostModel = isHostModel();
+    var habitatLabel = (current.manifest.species || {}).habitat_label || "Vegetation";
+    var habitatScore = p.score_habitat !== undefined ? p.score_habitat : p.score_vegetation;
     var lat = coords[1].toFixed(5), lon = coords[0].toFixed(5);
     var html =
       '<div class="pop"><h3>Rank ' + p.rank + " &middot; " + fmt(p.elevation_m) + " m</h3>" +
@@ -375,11 +485,11 @@
       "<dl>" +
       "<dt>Aspect</dt><dd>" + (p.aspect_compass || "-") + " (" + fmt(p.aspect_deg) + "&deg;)</dd>" +
       "<dt>Slope</dt><dd>" + fmt(p.slope_deg, 1, "&deg;") + "</dd>" +
-      "<dt>Vegetation</dt><dd>" + (p.veg_class || "-") + "</dd>" +
+      "<dt>" + habitatClassLabel() + "</dt><dd>" + (p.veg_class || "-") + "</dd>" +
+      habitatRows(p) +
       (p.on_cutblock
         ? "<dt>Logged</dt><dd>" + p.years_since_logging + " yr ago</dd>"
         : "") +
-      "<dt>NDVI</dt><dd>" + fmt(p.ndvi, 2) + "</dd>" +
       "<dt>Patch area</dt><dd>" + fmt(p.area_ha, 1, " ha") + "</dd>" +
       "<dt>Drive</dt><dd>" + minutesLabel(p.drive_minutes) + "</dd>" +
       "<dt>Hike</dt><dd>" + fmt(p.hike_km, 2, " km") + " / " + minutesLabel(p.hike_minutes) + "</dd>" +
@@ -388,16 +498,25 @@
       "</dl>" +
       '<div class="bars">' +
         bar("Terrain", p.score_terrain) +
-        bar("Vegetation", p.score_vegetation) +
+        bar(habitatLabel, habitatScore) +
         bar("Access", p.score_access) +
         bar("Observations", p.score_observations) +
+        (p.score_moisture !== undefined && p.score_moisture !== null
+          ? bar("Moisture", p.score_moisture) : "") +
       "</div>";
 
+    var penalised = (current.manifest.species || {}).logging_penalised !== false;
     if (p.on_cutblock && p.years_since_logging !== null && p.years_since_logging < 45) {
       html += '<div class="flagbox"><strong>Regenerating cutblock</strong><br>' +
-              "Logged " + p.years_since_logging + " years ago. Open ground here is " +
-              "harvest regrowth, not natural meadow - the score is already " +
-              "penalised for this.</div>";
+              "Logged " + p.years_since_logging + " years ago. " +
+              (!penalised
+                ? "This species colonises disturbed and logged ground, so the " +
+                  "score is not penalised for it."
+                : hostModel
+                ? "Harvest removes the host trees; the stand-age credit already " +
+                  "accounts for how long they take to come back."
+                : "Open ground here is harvest regrowth, not natural meadow - the " +
+                  "score is already penalised for this.") + "</div>";
     }
 
     if (p.land_flagged) {
@@ -405,6 +524,8 @@
               "Foraging here may be restricted or prohibited. Verify tenure and " +
               "permission before harvesting.</div>";
     }
+
+    html += folkMagicHTML((current.manifest.species || {}).folk_magic);
 
     html += '<div class="coords">' + lat + ", " + lon +
             ' &middot; <a href="https://www.google.com/maps/search/?api=1&query=' +
@@ -527,8 +648,8 @@
     if (!spec) { box.innerHTML = ""; return; }
 
     var html = "<h3>" + spec.label + "</h3>";
-    if (activeLegend === "vegetation" || activeLegend === "land_tenure") {
-      var rows = activeLegend === "vegetation" ? VEG_LEGEND : TENURE_LEGEND;
+    if (spec.legend || activeLegend === "land_tenure") {
+      var rows = spec.legend || TENURE_LEGEND;
       rows.forEach(function (r) {
         html += '<div class="row"><span class="swatch" style="background:' + r[0] + '"></span>' + r[1] + "</div>";
       });
@@ -540,6 +661,7 @@
         ? "linear-gradient(90deg,#440154,#3b528b,#21918c,#5ec962,#fde725)"
         : activeLegend === "slope" ? "linear-gradient(90deg,#ffffcc,#fdb04a,#e35a3c,#800026)"
         : activeLegend === "ndvi" ? "linear-gradient(90deg,#8c643c,#dcd28c,#5aaa46,#0a501e)"
+        : activeLegend === "moisture" ? "linear-gradient(90deg,#f5ebd2,#a0c8c8,#468cbe,#143c82)"
         : "linear-gradient(90deg,#3c6e46,#96af6e,#bea578,#a0826e,#fafafc)";
       html += '<div class="bar" style="background:' + grad + '"></div>' +
               '<div class="ends"><span>' + fmt(spec.min, 2) + "</span><span>" + fmt(spec.max, 2) + "</span></div>";

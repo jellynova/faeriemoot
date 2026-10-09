@@ -1,0 +1,180 @@
+{
+  "$comment": "Target profile for a moisture-obligate shrub. Devil's club never grows far from running or seeping water, and its shade requirement means NDVI alone would just find 'green'. habitat_model 'riparian' scores distance to streams, lakes and wetlands from BC's Freshwater Atlas, weighted by stream order, times a flat-ground credit from the DEM. No Sentinel-2 imagery is downloaded for this species.",
+  "id": "oplopanax_horridus",
+  "common_name": "Devil's club",
+  "scientific_name": "Oplopanax horridus",
+  "habitat_model": "host_trees",
+  "habitat_note": "Wet, shaded understory: stream banks, seepage slopes, alluvial terraces and swamp margins in low- to mid-elevation conifer forest, mostly below ~1000 m. Scored on two signals, because the plant needs both: the stand it grows under - cedar-led wet forest from the BC forest inventory, used as an *indicator* of that forest type rather than as a host, since cedar hosts nothing - and the water it grows beside, from the moisture component. The stand says which forest type this is; the moisture component says whether this particular patch is a seep or a dry slope within it.",
+  "weights_override": {
+    "$comment": "Two signals because the plant needs both: the wet-forest stand it grows under and the water it grows beside. Aspect is zero-weighted - which way the ground faces is already encoded in which trees are present and how wet the ground is.",
+    "weights": {
+      "terrain": 0.20,
+      "forest": 0.35,
+      "moisture": 0.25,
+      "access": 0.10,
+      "observations": 0.10
+    },
+    "terrain_subweights": {
+      "elevation": 0.75,
+      "slope": 0.25,
+      "aspect": 0.0
+    }
+  },
+  "folk_magic": {
+    "$comment": "The strongest protective plant of the Northwest Coast, so the associations here are mostly Indigenous and are labelled as such rather than folded into generic 'herbal lore'.",
+    "folk_names": [
+      "devil's club",
+      "devil's walking stick",
+      "Alaska ginseng",
+      "bear's medicine"
+    ],
+    "traditions": [
+      "Tlingit, Haida and Tsimshian",
+      "Coast Salish and Nuu-chah-nulth",
+      "Interior nations of BC and the Pacific Northwest (Sekani, Carrier and others)"
+    ],
+    "associations": [
+      {
+        "theme": "protection",
+        "note": "The plant's central use: a protective charm carried on the person, hung over doorways, placed in the home and taken on journeys as a ward against malevolent spirits, sickness and harm. Among several nations it was the protective plant, used where a European charm would have been hung.",
+        "origin": "Pacific Northwest Coast nations - Tlingit, Haida, Tsimshian, Coast Salish and Nuu-chah-nulth - with the protective use recorded throughout the ethnographic literature and still practised."
+      },
+      {
+        "theme": "spirit-work",
+        "note": "Used to cleanse and strengthen a person before ceremony and regarded as a plant of great spiritual power, sometimes called on for protection in spiritual work and to drive away harmful influence. Its use was not casual and in several traditions was restricted.",
+        "origin": "Northwest Coast and interior BC ceremonial practice, recorded in the ethnographic record for the genus."
+      },
+      {
+        "theme": "healing",
+        "note": "The most widespread use is medicinal rather than magical: the root bark in decoctions for arthritis, rheumatism, colds and, in recent decades, diabetes, and as a wash for sores. Some nations also used it as a purgative or emetic, which is the use to be most careful about.",
+        "origin": "Northwest Coast and interior nations; the medicinal use is documented across many communities and is the reason the plant is still called Alaska ginseng."
+      },
+      {
+        "theme": "luck",
+        "note": "Carried by hunters and travellers for success and safety in the bush, where its protective and luck-bringing roles merge into one practice.",
+        "origin": "Northwest Coast and interior hunting traditions."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "The stems are covered in fine spines that break off in the skin and cause lasting irritation - the common injury. The root bark is a strong medicine rather than a food: decoctions can be purgative or emetic, and there is some evidence they affect blood sugar, so anyone on diabetes medication should be particularly careful. Not for casual internal use. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Turner, N. J., on Haida, Tlingit, Coast Salish and interior BC plant use - the primary source for the protective and ceremonial uses.",
+      "Gunther, E., Ethnobotany of Western Washington - Northwest Coast use of Oplopanax horridus.",
+      "Moerman, D., Native American Ethnobotany - compiled ethnographic records."
+    ]
+  },
+  "observations": {
+    "taxon_name": "Oplopanax horridus",
+    "genus_fallback": "Oplopanax",
+    "$comment": "21 research-grade records in the West Kootenays AOI - enough for the layer to be a real signal rather than a flat baseline, though still biased to wherever people walk.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 900,
+    "months": [
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Low to mid elevation: a valley and lower-slope plant that reaches the subalpine in wet gullies. The lower bound sits below the AOI valley floor, so only the upper side bites. The optimal top was raised from 950 to 1150 m after the AOI's records put the interquartile range at 865-1100 m, which had left only 55% of them inside the band.",
+      "hard_min": 300,
+      "optimal_min": 380,
+      "optimal_max": 1150,
+      "hard_max": 1500
+    },
+    "slope_deg": {
+      "$comment": "Flat to gentle - floodplain, terrace and toe-slope. The riparian stage applies its own tighter slope credit; this one feeds the terrain component.",
+      "optimal_min": 0,
+      "optimal_max": 15,
+      "hard_max": 35
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "forest": {
+    "host_label": "cedar",
+    "host_label_plural": "cedars",
+    "$comment_label": "The label is deliberate and the affinity table is an indicator, not a host relationship: devil's club is not a mycorrhizal associate of cedar - cedar forms arbuscular associations and hosts nothing. Cedar-led stands are used here as a marker of the wet, mild, low-elevation forest type this species belongs to, which is why the UI says 'cedar-rich forest' rather than 'host-rich forest'. Hemlock and the other wet-conifer associates get moderate credit because they occur in the same stands.",
+    "host_affinity": {
+      "CW": 1.0,
+      "HW": 0.7,
+      "BL": 0.6,
+      "BG": 0.5,
+      "BA": 0.5,
+      "B": 0.5,
+      "SS": 0.6,
+      "SX": 0.5,
+      "SE": 0.5,
+      "S": 0.5,
+      "TW": 0.5,
+      "LW": 0.4,
+      "FD": 0.4,
+      "PL": 0.3,
+      "PY": 0.2,
+      "AT": 0.5,
+      "AC": 0.5,
+      "DR": 0.5,
+      "MB": 0.5,
+      "EP": 0.4
+    },
+    "default_affinity": 0.0,
+    "host_fraction": {
+      "$comment": "A stand below a 20% indicator share is not the wet-forest type; full credit at 60%, where the stand is dominated by it.",
+      "hard_min": 0.2,
+      "saturation": 0.6
+    },
+    "stand_age_credit": {
+      "$comment_knots": "Devil's club is an old-forest understory plant: nothing in fresh regeneration, and the humid shaded conditions it wants take decades to develop.",
+      "knots": [
+        [0, 0.0],
+        [30, 0.4],
+        [90, 1.0],
+        [500, 0.9]
+      ]
+    },
+    "crown_closure_pct": {
+      "$comment": "Needs shade - it is a closed-canopy understory plant - so the floor is high and dense canopy is fully credited.",
+      "hard_min": 20,
+      "optimal_min": 45,
+      "optimal_max": 100,
+      "hard_max": null
+    },
+    "missing_attribute_credit": 0.5
+  },
+  "moisture": {
+    "$comment": "The water half of the plant's requirement. Stream order is left at 1 - any mapped watercourse counts - because devil's club follows seepage lines as much as creeks, which is what the topographic-position term is for: a hollow or toe slope collects water whether or not a stream is mapped there. hard_max_m makes proximity a requirement rather than a preference: beyond 350 m from any water this is not devil's club ground, however good the stand looks.",
+    "water_distance_m": {
+      "optimal_max": 80,
+      "zero_at": 400,
+      "hard_max_m": 350
+    },
+    "tpi": {
+      "radius_m": 120,
+      "wet_at_m": -4.0,
+      "dry_at_m": 6.0
+    },
+    "blend": {
+      "water": 0.7,
+      "tpi": 0.3
+    },
+    "min_credit": 0.1,
+    "min_stream_order": 1,
+    "water_features": [
+      "streams",
+      "lakes",
+      "rivers",
+      "wetlands"
+    ]
+  },
+  "imagery_window_override": null
+}

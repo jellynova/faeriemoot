@@ -1,0 +1,159 @@
+{
+  "$comment": "Target profile for a mycorrhizal mushroom with a dangerous reputation. Scored with host_trees, because a fungus has no spectral signature of its own - it fruits where its hosts' roots are, and here that means birch and the conifers rather than the Douglas-fir the chanterelle follows. The safety block is the most restrictive in the set.",
+  "id": "amanita_muscaria",
+  "common_name": "Fly agaric",
+  "scientific_name": "Amanita muscaria",
+  "habitat_model": "host_trees",
+  "habitat_note": "Ectomycorrhizal with birch and with several conifers - spruce, pine, fir - fruiting in late summer and autumn in stands that contain its hosts. In this region that means birch stands and mixed spruce-fir forest rather than pure Douglas-fir. Scored on the host share of the stand from the BC forest inventory, times stand age and crown closure.",
+  "folk_magic": {
+    "$comment": "The one entry in this set whose magical reputation is inseparable from the fact that it is a dangerous drug. The associations are documented - the Siberian shamanic record is real ethnography - and the safety block says plainly that none of it is a reason to eat one.",
+    "folk_names": [
+      "fly agaric",
+      "fly amanita",
+      "fly mushroom",
+      "Fliegenpilz",
+      "fairy mushroom"
+    ],
+    "traditions": [
+      "Siberian shamanic practice (documented ethnography)",
+      "European folk tradition and later European and North American neopagan practice"
+    ],
+    "associations": [
+      {
+        "theme": "spirit-work",
+        "note": "The fly agaric's central place in the folk record is as the shaman's mushroom of Siberia: used by shamans of several Siberian peoples to enter trance, to travel, to divine the cause of illness and to speak with spirits, with the ethnographic accounts describing both the practice and its dangers. This is a genuinely documented tradition, and it is also the reason the mushroom is feared rather than recommended - the accounts describe a substance that made people violently ill and occasionally killed them.",
+        "origin": "Siberian shamanic ethnography; the use by the Koryak, Chukchi and other Siberian peoples is documented in the ethnographic literature and is not in dispute."
+      },
+      {
+        "theme": "divination",
+        "note": "The shamanic use included divination - finding out what had caused a sickness, where a lost thing was, what the coming season held - and the mushroom was taken for that purpose rather than for pleasure.",
+        "origin": "Siberian shamanic practice, recorded in the same ethnographic accounts as the spirit-work use."
+      },
+      {
+        "theme": "luck",
+        "note": "In European folk tradition the fly agaric is the lucky mushroom: the red-and-white cap of greeting cards, garden ornaments and fairy-tale illustration, a sign of good fortune and of the fairy world, and the mushroom most often pictured with Father Christmas and with dwarves' houses. The image is so familiar that it has detached from the plant entirely. The folk reading is of luck and enchantment, not of use.",
+        "origin": "European folk tradition and its later commercial imagery; the lucky-mushroom and fairy-tale associations are modern folklore rather than a documented charm."
+      },
+      {
+        "theme": "banishing",
+        "note": "The mushroom's practical folk use was as an insecticide: crushed and steeped in milk, it was set out to kill flies, which is where the name fly agaric and the German Fliegenpilz come from. In some traditions it was also hung as a deterrent around the house. It is the least romantic of its uses and the only one that was safe to perform.",
+        "origin": "European and Slavic household practice; the fly-killing use is recorded across Europe and gave the species its common name."
+      }
+    ],
+    "safety": {
+      "level": "restricted",
+      "note": "Do not eat this mushroom. It contains ibotenic acid and muscimol, which are not like the hallucinogens of the psilocybin mushrooms: the effect is a deliriant poisoning with vomiting, confusion, agitation, muscle twitching and, in serious cases, seizures and coma. The dose that produces the effects people seek is uncomfortably close to the dose that harms, the potency of a mushroom varies unpredictably, and children and pets have died after eating a single cap. It is also poisonous to livestock. Nothing in the folk record above is a reason to consume it. This note is a hazard summary, and for this species the hazard summary is the whole message."
+    },
+    "sources": [
+      "Siberian shamanic ethnography for the ceremonial and divinatory use.",
+      "European and Slavic household practice for the fly-killing use and the common name.",
+      "Standard mycology and toxicology references for the ibotenic acid and muscimol content and the poisonings recorded from this species.",
+      "Pilz, D., et al., USDA PNW-GTR-576 - the mycorrhizal associations the habitat model is built on."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Habitat component is 'forest'. Aspect zero-weighted: host composition already encodes the site.",
+    "weights": {
+      "terrain": 0.20,
+      "forest": 0.45,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.6,
+      "slope": 0.4,
+      "aspect": 0.0
+    }
+  },
+  "observations": {
+    "taxon_name": "Amanita muscaria",
+    "genus_fallback": "Amanita",
+    "$comment": "43 research-grade records in the AOI, concentrated in September to November, which is the fruiting season. The panther cap (A. pantherina) is down-weighted as a look-alike of different habitat, and because its records are a mushroom-hunter's record rather than this species'.",
+    "congeners_downweight": [
+      "Amanita pantherina"
+    ],
+    "quality_grade": "research",
+    "boost_radius_m": 800,
+    "months": [
+      8,
+      9,
+      10,
+      11
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Wide - it follows its hosts from the valley up through the montane forest.",
+      "hard_min": 300,
+      "optimal_min": 400,
+      "optimal_max": 1300,
+      "hard_max": 1700
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 30,
+      "hard_max": 45
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "forest": {
+    "host_affinity": {
+      "$comment": "Fly agaric associates with birch and with several conifers, so unlike the chanterelle profile this table spreads across hosts rather than concentrating on one. Paper birch (EP) is the classic partner and scores highest; the spruces, pines and true firs follow; Douglas-fir is a weaker host here even though it dominates the AOI's inventory. Cedar and yew are zero: they form arbuscular rather than ectomycorrhizal associations and cannot host any Amanita. All values are expert priors, not measurements.",
+      "EP": 1.0,
+      "SS": 0.7,
+      "SX": 0.7,
+      "SE": 0.7,
+      "S": 0.7,
+      "PL": 0.5,
+      "PW": 0.4,
+      "PY": 0.3,
+      "PA": 0.3,
+      "BL": 0.4,
+      "BG": 0.4,
+      "BA": 0.3,
+      "B": 0.4,
+      "LW": 0.3,
+      "L": 0.3,
+      "LA": 0.2,
+      "HM": 0.3,
+      "HW": 0.3,
+      "FD": 0.3,
+      "AT": 0.5,
+      "AC": 0.4,
+      "DR": 0.3,
+      "MB": 0.3,
+      "CW": 0.0,
+      "TW": 0.0
+    },
+    "default_affinity": 0.0,
+    "host_fraction": {
+      "$comment": "Below a 20% host share there are not enough host roots; full credit at 50%, since a stand half of birch or spruce has hosts throughout.",
+      "hard_min": 0.2,
+      "saturation": 0.5
+    },
+    "stand_age_credit": {
+      "$comment_knots": "Fruits from roughly the second decade once the hosts are established, full credit in mature stands, easing slightly in very old forest.",
+      "knots": [
+        [0, 0.0],
+        [10, 0.2],
+        [25, 1.0],
+        [200, 0.9]
+      ]
+    },
+    "crown_closure_pct": {
+      "$comment": "Fruits in open to closed stands; the floor is low because a birch stand with gaps is still fly agaric ground.",
+      "hard_min": 20,
+      "optimal_min": 40,
+      "optimal_max": 100,
+      "hard_max": null
+    },
+    "missing_attribute_credit": 0.5
+  },
+  "imagery_window_override": null
+}

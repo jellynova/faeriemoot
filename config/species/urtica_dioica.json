@@ -1,0 +1,157 @@
+{
+  "$comment": "Target profile for a moisture-loving nitrophile. Nettle follows water and disturbed, enriched ground - stream banks, avalanche tracks, road edges, old farmyards - so habitat_model 'riparian' is the right signal, with a wide distance band because it tolerates drier ground than devil's club does.",
+  "id": "urtica_dioica",
+  "common_name": "Stinging nettle",
+  "scientific_name": "Urtica dioica",
+  "habitat_model": "spectral",
+  "habitat_note": "Stream banks, seepage lines, avalanche runouts, damp thickets and enriched disturbed ground, from valley bottom to lower subalpine. Wants moisture and nitrogen, and follows people: many of the best patches in this region are old homesteads and road edges. Scored on two signals - the vegetation layer for the open, lush, disturbed ground it occupies, and the moisture component for the damp part of it - with a wide moisture band because nettle will take a drier site if the soil is rich.",
+  "weights_override": {
+    "$comment": "A two-signal species: the vegetation layer finds the open, green, disturbed ground it wants and the moisture component finds the damp part of it. Aspect is zero-weighted - for a plant following water and disturbance, which way the ground faces is not the binding variable.",
+    "weights": {
+      "terrain": 0.25,
+      "vegetation": 0.30,
+      "moisture": 0.25,
+      "access": 0.10,
+      "observations": 0.10
+    },
+    "terrain_subweights": {
+      "elevation": 0.75,
+      "slope": 0.25,
+      "aspect": 0.0
+    }
+  },
+  "folk_magic": {
+    "$comment": "European magical use is unusually strong for a plant this common, and it is worth separating from the Indigenous food-and-fibre use, which is a different kind of record.",
+    "folk_names": [
+      "stinging nettle",
+      "common nettle",
+      "devil's apron",
+      "devil's leaf"
+    ],
+    "traditions": [
+      "British Isles and European folk magic",
+      "Indigenous North American nations (food, fibre and medicine)"
+    ],
+    "associations": [
+      {
+        "theme": "protection",
+        "note": "Nettle was a protective plant: carried in a pouch, strewn in the home, or grown by the door to keep harm and ill-wishing out. In the British Isles a bundle of nettle was thrown on the fire to avert lightning and to turn aside evil, and it was one of the herbs a household was expected to have to hand for that purpose.",
+        "origin": "British Isles and wider European folk practice; the lightning and warding uses are standard in the folk-herb record."
+      },
+      {
+        "theme": "banishing",
+        "note": "Used to drive out evil and break curses, thrown after an ill-wisher or into a room to clear it, and in some accounts used to return a curse to its sender. The plant's sting is part of the logic - it was a herb that fought back.",
+        "origin": "European folk magic; the banishing and curse-returning uses are recorded in the British and German folk record."
+      },
+      {
+        "theme": "weather",
+        "note": "Nettle burned or hung to turn away lightning and storms, a use shared with several of the protective herbs in this set. It belongs with the warding uses above rather than standing on its own.",
+        "origin": "European folk tradition, most strongly attested in the British Isles."
+      },
+      {
+        "theme": "healing",
+        "note": "Nettle's other long record is medicinal and dietary: a spring tonic and cooked green, a fibre plant whose stems were retted and spun into cloth, and - most oddly - urtication, the deliberate stinging of a joint to treat arthritic pain, which is a real and repeatedly documented practice rather than a joke.",
+        "origin": "European herbalism for the tonic, textile and urtication traditions; Indigenous North American nations used nettle for food, cordage and medicine in closely comparable ways."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "The stinging hairs are the obvious hazard and cause a rash in most people. Cooked or blanched, the plant is a safe and ordinary green - the sting is destroyed by heat and drying. As a medicine it is a diuretic and may interact with blood thinners, blood-pressure and diabetes medication, and it is traditionally avoided in pregnancy because it can stimulate the uterus. Do not attempt urtication without knowing what you are doing. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Culpeper, The Complete Herbal (17th c.) - European medicinal and protective use.",
+      "British and German folk-magic compilations for the warding, banishing and lightning uses.",
+      "Turner, N. J., and Moerman, D. - Indigenous North American food, fibre and medicinal use."
+    ]
+  },
+  "observations": {
+    "taxon_name": "Urtica dioica",
+    "genus_fallback": "Urtica",
+    "$comment": "13 research-grade records in the AOI, and iNaturalist's Urtica dioica is a species complex (the native U. dioica subsp. gracilis plus the introduced subspecies), which is fine here - all of them want the same damp enriched ground.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 900,
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Valley bottom through the lower slopes; it thins out as the growing season shortens and the ground gets poorer.",
+      "hard_min": 300,
+      "optimal_min": 380,
+      "optimal_max": 1100,
+      "hard_max": 1600
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 20,
+      "hard_max": 38
+    },
+    "aspect": {
+      "$comment": "Unused (subweight 0). Kept because the terrain stage reads it.",
+      "optimal_bearing_deg": 0.0,
+      "tolerance_deg": 180.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "$comment": "Scored as open, lush, disturbed ground. Nettle is a nitrophile: it wants full light and enriched soil, which in this landscape means the greenest, most productive ground rather than the thin sward the dry-site species occupy.",
+    "ndvi": {
+      "hard_min": 0.3,
+      "optimal_min": 0.5,
+      "optimal_max": 0.92
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "meadow": 1.0,
+      "open_forest": 0.7,
+      "closed_forest": 0.2,
+      "bare": 0.1
+    },
+    "logging": {
+      "$comment": "Nettle follows disturbance, so the penalty is light and fades quickly - a fresh landing or a new road edge is genuine nettle ground.",
+      "penalty": 0.7,
+      "recovery_years": 20
+    }
+  },
+  "moisture": {
+    "$comment": "The damp half of the plant's requirement, and a preference rather than a hard requirement - nettle will take a dry site if the soil is enriched, which is what the min_credit floor says. The topographic-position term matters as much as the water distance here: nettle follows ditches, old farmyards and seepage lines that are often unmapped.",
+    "water_distance_m": {
+      "optimal_max": 120,
+      "zero_at": 500,
+      "hard_max_m": 450
+    },
+    "tpi": {
+      "radius_m": 120,
+      "wet_at_m": -4.0,
+      "dry_at_m": 6.0
+    },
+    "blend": {
+      "water": 0.6,
+      "tpi": 0.4
+    },
+    "min_credit": 0.15,
+    "min_stream_order": 1,
+    "water_features": [
+      "streams",
+      "lakes",
+      "rivers",
+      "wetlands"
+    ]
+  },
+  "imagery_window_override": null
+}

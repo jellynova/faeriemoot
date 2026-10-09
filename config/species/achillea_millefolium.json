@@ -1,0 +1,135 @@
+{
+  "$comment": "Target profile for an open-ground perennial of meadows and roadsides. Yarrow is the richest folk-magic entry in this set: divination, love and protection all attach to it, in both the European and the Chinese record.",
+  "id": "achillea_millefolium",
+  "common_name": "Yarrow",
+  "scientific_name": "Achillea millefolium",
+  "habitat_model": "spectral",
+  "habitat_note": "Open grassland, meadow, roadside, gravel and open forest at almost any elevation, from valley bottom to alpine. Wants full light and tolerates poor, dry, compacted ground, so it is scored as open ground with a low NDVI floor - yarrow grows where the sward is thin.",
+  "folk_magic": {
+    "$comment": "Yarrow's associations are unusually well documented, so they are given in full rather than compressed to one line each.",
+    "folk_names": [
+      "yarrow",
+      "milfoil",
+      "thousand-leaf",
+      "soldier's woundwort",
+      "nosebleed plant",
+      "devil's nettle"
+    ],
+    "traditions": [
+      "European folk magic (British Isles and Central Europe)",
+      "Chinese tradition (the yarrow stalks of I Ching divination)",
+      "Indigenous North American nations"
+    ],
+    "associations": [
+      {
+        "theme": "divination",
+        "note": "Yarrow is the plant of divination in two separate traditions. In China the dried stalks of yarrow are the traditional medium of I Ching divination, chosen for the plant's reputation for order and balance. In Europe it was used for love divination and for finding out what the future held, including the practice of plucking a leaf while reciting a rhyme and reading the outcome.",
+        "origin": "Chinese tradition for the I Ching stalks (Achillea spp.); British and Central European folk practice for the love and fortune divination."
+      },
+      {
+        "theme": "love",
+        "note": "The best-known European charm is the pillow spell: yarrow gathered and placed under the pillow, sometimes with a spoken verse, to dream of the person one would marry. It was also worked into love charms and love-drawing sachets.",
+        "origin": "European folk magic; the pillow charm is recorded across the British Isles and appears in most folk-magic compilations."
+      },
+      {
+        "theme": "protection",
+        "note": "A protective herb used against harm and ill-wishing, hung over cradles and doorways, and carried to turn aside evil. One of its folk names, devil's nettle, reflects the belief that the plant was hateful to the devil - which is to say protective - and it was one of the herbs used to keep a household safe.",
+        "origin": "European folk magic; the cradle and doorway uses and the devil's-nettle name are recorded throughout the British and German record."
+      },
+      {
+        "theme": "courage",
+        "note": "Called soldier's woundwort, yarrow was carried onto the battlefield both to staunch wounds and to steady the one carrying it, and the courage association comes from that pairing of a wound herb with a protective charm.",
+        "origin": "European tradition; the soldier's-woundwort name and the battlefield use are recorded in the herbals and the folk record."
+      }
+    ],
+    "safety": {
+      "level": "caution",
+      "note": "Yarrow contains thujone and other compounds that matter in quantity. It can cause contact dermatitis in sensitive people and photosensitivity in some, it is traditionally avoided in pregnancy, and it may interact with blood thinners, sedatives and blood-pressure medication. A cup of yarrow tea is not a neutral act if you are on any of those. This note is a hazard summary, not a dosage."
+    },
+    "sources": [
+      "Culpeper, The Complete Herbal (17th c.) and Gerard, Herball (1597) - European medicinal and protective use.",
+      "British and Central European folk-magic compilations for the pillow charm, the devil's-nettle name and the battlefield use.",
+      "Chinese tradition for the yarrow-stalk method of I Ching divination.",
+      "Moerman, D., Native American Ethnobotany - Indigenous North American use."
+    ]
+  },
+  "weights_override": {
+    "$comment": "Aspect gets a real but modest weight here: yarrow is a sun-loving plant of open ground, and in this region south- and west-facing openings dry earlier and are typically where the thin, open sward it likes sits. The tolerance is wide, so this shades the ranking rather than driving it.",
+    "weights": {
+      "terrain": 0.30,
+      "vegetation": 0.35,
+      "access": 0.20,
+      "observations": 0.15
+    },
+    "terrain_subweights": {
+      "elevation": 0.55,
+      "slope": 0.25,
+      "aspect": 0.20
+    }
+  },
+  "observations": {
+    "taxon_name": "Achillea millefolium",
+    "genus_fallback": "Achillea",
+    "$comment": "79 research-grade records in the AOI. iNaturalist treats A. millefolium as a complex covering the native and introduced forms; they occupy the same open ground, so no congener down-weighting is needed.",
+    "congeners_downweight": [],
+    "quality_grade": "research",
+    "boost_radius_m": 700,
+    "months": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "no_observation_baseline": 0.5
+  },
+  "terrain": {
+    "elevation_m": {
+      "$comment": "Wide, because yarrow is genuinely widespread; the hard bounds only exclude the valley floor below the AOI and the highest alpine.",
+      "hard_min": 250,
+      "optimal_min": 400,
+      "optimal_max": 1900,
+      "hard_max": 2400
+    },
+    "slope_deg": {
+      "optimal_min": 0,
+      "optimal_max": 28,
+      "hard_max": 42
+    },
+    "aspect": {
+      "$comment": "Broad south-to-west preference, as described in the weights note.",
+      "optimal_bearing_deg": 195.0,
+      "tolerance_deg": 100.0,
+      "flat_slope_deg": 3.0
+    }
+  },
+  "vegetation": {
+    "ndvi": {
+      "$comment": "A lower floor than arnica's: yarrow occupies thin, gravelly, compacted sward that reads as sparsely vegetated.",
+      "hard_min": 0.28,
+      "optimal_min": 0.42,
+      "optimal_max": 0.88
+    },
+    "ndmi": {
+      "open_max": 0.12,
+      "closed_min": 0.34
+    },
+    "texture": {
+      "smooth_max": 0.012,
+      "rough_min": 0.06
+    },
+    "closure_texture_weight": 0.0,
+    "openness_preference": {
+      "meadow": 1.0,
+      "open_forest": 0.65,
+      "closed_forest": 0.15,
+      "bare": 0.08
+    },
+    "logging": {
+      "$comment": "Yarrow will take a cutblock or a roadside, but it is not a fire-follower the way fireweed is, so a partial penalty is applied and it fades quickly.",
+      "penalty": 0.6,
+      "recovery_years": 20
+    }
+  },
+  "imagery_window_override": null
+}
